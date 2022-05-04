@@ -1,0 +1,16 @@
+<!--
+Owner: Silvio Maeta
+NOTES:
+-->
+<launch>
+
+    <!-- Generate plots using odometry data -->
+    <node name="generate_kml" pkg="kml_generator" type="generate_kml.py" output="screen">
+        <param name="output_filename" value="/home/wiktor/erl_ws/src/kml_generator/odometry_kml_trajectory.kml"/>
+        <param name="pose_topic" value="/gps_point_lat_lng" />
+        <param name="orient_topic" value="/odometry/filtered"/>
+        <param name="utm_zone_number" value="33"/>
+    </node>
+
+</launch>
+
