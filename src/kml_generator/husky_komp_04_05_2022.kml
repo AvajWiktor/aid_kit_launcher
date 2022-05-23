@@ -1,0 +1,90 @@
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document>
+    <Style id="sn_shaded_dot">
+      <IconStyle>
+        <scale>1.2</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/shapes/shaded_dot.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <gx:Tour>
+      <name>Play me!</name>
+      <gx:Playlist>
+        <gx:FlyTo>
+          <gx:duration>99.0</gx:duration>
+          <gx:flyToMode>smooth</gx:flyToMode>
+          <LookAt>
+            <latitude>52.40169016666667</latitude>
+            <longitude>16.95155983333333</longitude>
+            <altitude>2.0</altitude>
+            <heading>146.0384102887754</heading>
+            <tilt>75.0</tilt>
+            <range>20.0</range>
+            <altitudeMode>absolute</altitudeMode>
+          </LookAt>
+        </gx:FlyTo>
+        <gx:FlyTo>
+          <gx:duration>17.0</gx:duration>
+          <gx:flyToMode>smooth</gx:flyToMode>
+          <LookAt>
+            <latitude>52.40162416666667</latitude>
+            <longitude>16.951531499999998</longitude>
+            <altitude>2.0</altitude>
+            <heading>-136.59330683682285</heading>
+            <tilt>75.0</tilt>
+            <range>20.0</range>
+            <altitudeMode>absolute</altitudeMode>
+          </LookAt>
+        </gx:FlyTo>
+      </gx:Playlist>
+    </gx:Tour>
+    <Folder id="animations">
+      <name>Animations</name>
+    </Folder>
+    <Folder id="paths">
+      <name>Paths</name>
+      <Placemark>
+        <name>plan-path</name>
+        <extrude>1</extrude>
+        <tessellate>1</tessellate>
+        <altitudeMode>absolute</altitudeMode>
+        <Style>
+          <LineStyle>
+            <color>7FFF0000</color>
+            <width>5</width>
+          </LineStyle>
+          <PolyStyle>
+            <color>7FFFFF00</color>
+          </PolyStyle>
+        </Style>
+        <LineString>
+          <tessellate>1</tessellate>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates></coordinates>
+        </LineString>
+      </Placemark>
+      <Placemark>
+        <name>exec-path</name>
+        <altitudeMode>absolute</altitudeMode>
+        <Style>
+          <LineStyle>
+            <color>7F0000FF</color>
+            <width>5</width>
+          </LineStyle>
+          <PolyStyle>
+            <color>7FFFFFFF</color>
+          </PolyStyle>
+        </Style>
+        <LineString>
+          <extrude>1</extrude>
+          <tessellate>1</tessellate>
+          <altitudeMode>absolute</altitudeMode>
+          <coordinates> 16.95155983333333,52.40169016666667,2.0
+ 16.951531499999998,52.40162416666667,2.0
+</coordinates>
+        </LineString>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>

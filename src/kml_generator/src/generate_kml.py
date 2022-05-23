@@ -170,12 +170,12 @@ class KMLTourGenerator(object):
 
     # ---------------------------------------------------------------------------
     def update(self):
-        print('dupa')
-        if (self.hasOdom):
+        print('No odometry')
+        if self.hasOdom:
             # ----------------------------------
             dt = self.currOdom.header.stamp.to_sec() - self.prevOdom.header.stamp.to_sec()
 
-            dx = self.currOdom.latitude - self.prevOdom.latitude
+            dx = -self.prevOdom.latitude + self.currOdom.latitude
             dy = self.currOdom.longitude - self.prevOdom.longitude
             dz = self.currOdom.altitude - self.prevOdom.altitude
 
@@ -184,8 +184,7 @@ class KMLTourGenerator(object):
 
             # v = d/dt
             # ----------------------------------
-            if ((dt > 10.0) or
-                    ((dt > 1.0) and (d > 10.0))):
+            if (dt > 1.0):
                 latLongPos = self.convertToLatLong(self.currOdom, self.currOrient)
                 self.kml_addPathPoint(latLongPos, dt)
                 self.totalTime = self.totalTime + dt
@@ -197,7 +196,7 @@ class KMLTourGenerator(object):
             self.hasOrient = False
 
     # ---------------------------------------------------------------------------
-    def convertToLatLong(self, gps, odom):
+    def convertToLatLong(self, gps, orient):
         utm_north = gps.latitude
         utm_east = gps.longitude
 
@@ -208,9 +207,9 @@ class KMLTourGenerator(object):
         latlon = [utm_north, utm_east]
         latitude = latlon[0]
         longitude = latlon[1]
-        altitude = -gps.altitude + self.zOffset
+        altitude = gps.altitude
 
-        ori = odom.pose.pose.orientation
+        ori = orient.pose.pose.orientation
         euler = tf.transformations.euler_from_quaternion(([ori.x, ori.y, ori.z, ori.w]))
         # rospy.logerr(euler)
         return (latitude, longitude, altitude, euler[0] * (180.0 / math.pi), euler[1] * (180.0 / math.pi),
