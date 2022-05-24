@@ -11,8 +11,10 @@ from threading import Thread
 from PIL import ImageTk, Image
 from model.main_model import MainModel
 from controller.main_controller import MainController
+from husky_msgs.msg import HuskyStatus
 from geometry_msgs.msg import Pose, Point, Quaternion
 from tkinter import filedialog as fd
+import rospy
 from tkintermapview import TkinterMapView
 import time
 import json
@@ -47,6 +49,25 @@ class MainWindowView:
                                ttk.StringVar(value='0.0'),
                                ttk.StringVar(value='0.0')]
                           }
+        self.diagnostic_data = {"Temperature":
+                                    {"LeftDriver": ttk.StringVar(value='0.0'),
+                                     "LeftMotor": ttk.StringVar(value='0.0'),
+                                     "RightDriver": ttk.StringVar(value='0.0'),
+                                     "RightMotor": ttk.StringVar(value='0.0')
+                                     },
+                                "Battery":
+                                    {"Capacity": ttk.StringVar(value='0.0'),
+                                     "Charge": ttk.StringVar(value='0.0')
+                                     },
+                                "ErrorsStatus":
+                                    {"Timeout": ttk.StringVar(value='0.0'),
+                                     "Lockout": ttk.StringVar(value='0.0'),
+                                     "Estop": ttk.StringVar(value='0.0'),
+                                     "RosPause": ttk.StringVar(value='0.0'),
+                                     "NoBattery": ttk.StringVar(value='0.0'),
+                                     "CurrentLimit": ttk.StringVar(value='0.0')
+                                     }
+                                }
         """
         *Code here*
         """
@@ -68,6 +89,7 @@ class MainWindowView:
             long = data['GPS'].longitude
             pose = data['Odom'].pose
             velocity = data['Odom'].twist
+            diagnostic = data['Diagnostic']
             # orientation = data['Odom'].pose.orientation
             if type(lat) is float and type(long) is float:
                 self.gps_data['Lat'].set(round(lat, 10))
@@ -96,8 +118,26 @@ class MainWindowView:
                 self.odom_data['AngularVel'][0].set(round(angular.x, 3))
                 self.odom_data['AngularVel'][1].set(round(angular.y, 3))
                 self.odom_data['AngularVel'][2].set(round(angular.z, 3))
-
-            time.sleep(1 / 3)
+            # print(diagnostic)
+            if not isinstance(diagnostic, type(HuskyStatus)):
+                diagnostic = diagnostic.status
+                # print(round(float(diagnostic[0].values[7].value), 3))
+                self.diagnostic_data['Temperature']['LeftDriver'].set(round(float(diagnostic[0].values[7].value), 3))
+                self.diagnostic_data['Temperature']['LeftMotor'].set(round(float(diagnostic[0].values[9].value), 3))
+                self.diagnostic_data['Temperature']['RightDriver'].set(round(float(diagnostic[0].values[8].value), 3))
+                self.diagnostic_data['Temperature']['RightMotor'].set(round(float(diagnostic[0].values[10].value), 3))
+                # print(diagnostic[1].values[0])
+                self.diagnostic_data['Battery']['Capacity'].set(round(float(diagnostic[1].values[1].value), 3))
+                self.diagnostic_data['Battery']['Charge'].set(round(100 * float(diagnostic[1].values[0].value), 3))
+                self.update_battery_bar()
+                self.diagnostic_data['ErrorsStatus']['Timeout'].set(diagnostic[2].values[0].value)
+                self.diagnostic_data['ErrorsStatus']['Lockout'].set(diagnostic[2].values[1].value)
+                self.diagnostic_data['ErrorsStatus']['Estop'].set(diagnostic[2].values[2].value)
+                self.diagnostic_data['ErrorsStatus']['RosPause'].set(diagnostic[2].values[3].value)
+                self.diagnostic_data['ErrorsStatus']['NoBattery'].set(diagnostic[2].values[4].value)
+                self.diagnostic_data['ErrorsStatus']['CurrentLimit'].set(diagnostic[2].values[5].value)
+            rospy.sleep(1/60)
+            #time.sleep(1 / 3)
 
     def executor(self):
         pass
@@ -138,7 +178,9 @@ class MainWindowView:
         self.robot_marker = map_widget.set_marker(52.2366, 16.2446, text="Husky", image=robot_image)
 
         self.robot_marker.image_zoom_visibility = (0, float('inf'))
-        self.robot_path = map_widget.set_path([self.robot_marker.position, self.robot_marker.position, self.robot_marker.position, self.robot_marker.position])
+        self.robot_path = map_widget.set_path(
+            [self.robot_marker.position, self.robot_marker.position, self.robot_marker.position,
+             self.robot_marker.position])
 
     def add_menu_components(self):
         ttk.Label(self.menu_label_frame, text='Tag id').pack()
@@ -150,13 +192,13 @@ class MainWindowView:
     def add_status_components(self):
         ### GPS status components ###
         gps_status_frame = ttk.LabelFrame(self.main_status_frame, text='GPS status', padding=20)
-        gps_status_frame.pack(anchor="nw", fill="x", expand=True)
+        gps_status_frame.pack(anchor="nw", fill="x")
         # Latitude #
         ttk.Label(gps_status_frame, text="Latitude: ").pack(side=LEFT)
         ttk.Label(gps_status_frame, textvariable=self.gps_data['Lat'], width=20).pack(side=LEFT)
         # Longitude #
         ttk.Label(gps_status_frame, text="Longitude: ").pack(side=LEFT)
-        ttk.Label(gps_status_frame, textvariable=self.gps_data['Long'], width=20).pack()
+        ttk.Label(gps_status_frame, textvariable=self.gps_data['Long'], width=20).pack(side=LEFT)
         ### Odometry status components ###
         odometry_status_frame = ttk.LabelFrame(self.main_status_frame, text='Odometry status', padding=20)
         odometry_status_frame.pack(anchor="nw", fill="x", expand=True)
@@ -194,6 +236,58 @@ class MainWindowView:
         ttk.Label(odometry_status_frame, textvariable=self.odom_data['AngularVel'][1], width=7).grid(column=4, row=3)
         ttk.Label(odometry_status_frame, text="Z: ").grid(column=5, row=3)
         ttk.Label(odometry_status_frame, textvariable=self.odom_data['AngularVel'][2], width=7).grid(column=6, row=3)
+        ### Robot diagnostic components ###
+        diagnostic_status_frame = ttk.LabelFrame(self.main_status_frame, text='Diagnostic robot status', padding=20)
+        diagnostic_status_frame.pack(anchor="nw", fill="x", expand=True)
+        # Component temperatures #
+        temperature_frame = ttk.LabelFrame(diagnostic_status_frame, text="Component temperatures [℃]")
+        temperature_frame.pack(side=TOP, fill="x", pady=15)
+
+        ttk.Label(temperature_frame, text="Left driver: ").grid(column=0, row=0, pady=15, padx=15)
+        ttk.Label(temperature_frame,
+                  textvariable=self.diagnostic_data['Temperature']['LeftDriver'], width=7).grid(column=1, row=0)
+        ttk.Label(temperature_frame, text="Left motor: ").grid(column=2, row=0)
+        ttk.Label(temperature_frame,
+                  textvariable=self.diagnostic_data['Temperature']['LeftMotor'], width=7).grid(column=3, row=0)
+        ttk.Label(temperature_frame, text="Right driver: ").grid(column=4, row=0)
+        ttk.Label(temperature_frame,
+                  textvariable=self.diagnostic_data['Temperature']['RightDriver'], width=7).grid(column=5, row=0)
+        ttk.Label(temperature_frame, text="Right motor: ").grid(column=6, row=0)
+        ttk.Label(temperature_frame,
+                  textvariable=self.diagnostic_data['Temperature']['RightMotor'], width=7).grid(column=7, row=0)
+        # Battery #
+        battery_frame = ttk.LabelFrame(diagnostic_status_frame, text="Battery status")
+        battery_frame.pack(side=TOP, fill="x", pady=15)
+
+        ttk.Label(battery_frame, text="Capacity estimated [Wh]:").grid(column=0, row=0, pady=15, padx=15)
+        ttk.Label(battery_frame,
+                  textvariable=self.diagnostic_data['Battery']['Capacity'], width=7).grid(column=1, row=0)
+        ttk.Label(battery_frame, text="Charge estimated [%]:").grid(column=2, row=0, padx=15)
+        ttk.Label(battery_frame,
+                  textvariable=self.diagnostic_data['Battery']['Charge'], width=7).grid(column=3, row=0)
+        self.add_battery(battery_frame, self.diagnostic_data['Battery']['Charge'], 4, 0)
+        # Error Status #
+        error_frame = ttk.LabelFrame(diagnostic_status_frame, text="Battery status")
+        error_frame.pack(side=TOP, fill="x", pady=15)
+
+        ttk.Label(error_frame, text="Timeout: ").grid(column=0, row=0, pady=15, padx=15)
+        ttk.Label(error_frame,
+                  textvariable=self.diagnostic_data['ErrorsStatus']['Timeout'], width=7).grid(column=1, row=0)
+        ttk.Label(error_frame, text="Lockout: ").grid(column=2, row=0)
+        ttk.Label(error_frame,
+                  textvariable=self.diagnostic_data['ErrorsStatus']['Lockout'], width=7).grid(column=3, row=0)
+        ttk.Label(error_frame, text="Estop: ").grid(column=4, row=0)
+        ttk.Label(error_frame,
+                  textvariable=self.diagnostic_data['ErrorsStatus']['Estop'], width=7).grid(column=5, row=0)
+        ttk.Label(error_frame, text="RosPause:").grid(column=6, row=0)
+        ttk.Label(error_frame,
+                  textvariable=self.diagnostic_data['ErrorsStatus']['RosPause'], width=7).grid(column=7, row=0)
+        ttk.Label(error_frame, text="NoBattery:").grid(column=8, row=0)
+        ttk.Label(error_frame,
+                  textvariable=self.diagnostic_data['ErrorsStatus']['NoBattery'], width=7).grid(column=9, row=0)
+        ttk.Label(error_frame, text="CurrentLimit:").grid(column=10, row=0)
+        ttk.Label(error_frame,
+                  textvariable=self.diagnostic_data['ErrorsStatus']['CurrentLimit'], width=7).grid(column=11, row=0)
 
     def add_image(self, img_name):
         img = Image.open(f'utilities/{img_name}.png')
@@ -205,3 +299,34 @@ class MainWindowView:
         # Position image
         img_label.pack()  # place(x= 10, y = 10)
         # Create a Label Widget to display the text or Image
+
+    def add_battery(self, parent, variable, column, row):
+        TROUGH_COLOR = "#000000"
+        BAR_COLOR = 'green'
+
+        self.root.style.configure("bar.Horizontal.TProgressbar", troughcolor=TROUGH_COLOR,
+                                  bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
+                                  darkcolor=BAR_COLOR, thickness=30)
+        ttk.Progressbar(parent, orient=HORIZONTAL, length=100, mode='determinate', variable=variable,
+                        style="bar.Horizontal.TProgressbar").grid(column=column, row=row, pady=15)
+
+    def update_battery_bar(self):
+        curr_val = float(self.diagnostic_data['Battery']['Charge'].get())
+        if 25.0 < curr_val < 50.0:
+            BAR_COLOR = 'yellow'
+            self.root.style.configure("bar.Horizontal.TProgressbar",
+                                      bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
+
+                                      darkcolor=BAR_COLOR)
+        elif curr_val <= 25.0:
+            BAR_COLOR = 'red'
+
+            self.root.style.configure("bar.Horizontal.TProgressbar",
+                                      bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
+                                      darkcolor=BAR_COLOR)
+        else:
+            BAR_COLOR = 'green'
+
+            self.root.style.configure("bar.Horizontal.TProgressbar",
+                                      bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
+                                      darkcolor=BAR_COLOR)
