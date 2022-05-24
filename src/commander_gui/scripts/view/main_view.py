@@ -23,7 +23,9 @@ import json
 class MainWindowView:
     def __init__(self, robot_model):
         self.root = ttk.Window(themename='cyborg', title='Commander GUI')
-        self.root.minsize(width=1920, height=800)
+        self.screen_width = self.root.winfo_screenwidth()
+        self.screen_height = self.root.winfo_screenheight()
+        self.root.minsize(width=1920, height=1080)
         self.robot_model = robot_model
         self.model = MainModel(self.robot_model)
         self.controller = MainController(self.robot_model, self.model)
@@ -160,17 +162,19 @@ class MainWindowView:
         self.right_frame = ttk.Frame(self.root, padding=5)
 
         self.left_frame.pack(side=LEFT, fill='both', expand=False)
-        self.center_frame.pack(side=LEFT, fill='both', expand=True)
-        self.right_frame.pack(side=LEFT, fill='both', expand=True)
+        self.center_frame.pack(side=LEFT, fill='both', expand=False)
+        self.right_frame.pack(side=LEFT, fill='both', expand=False)
 
         self.menu_label_frame = ttk.LabelFrame(self.left_frame, text='Menu', padding=50)
-        self.menu_label_frame.pack(fill='both')
+        self.menu_label_frame.pack(fill='both', expand=True)
 
-        self.main_status_frame = ttk.LabelFrame(self.center_frame, text='Current Robot States', padding=50)
+        self.main_status_frame = ttk.LabelFrame(self.center_frame, text='Current Robot States & Actions', padding=50)
         self.main_status_frame.pack(fill='both', expand=True)
 
     def create_map_features(self):
-        map_widget = TkinterMapView(self.right_frame, width=1500, height=1500, corner_radius=0)
+        map_frame = ttk.LabelFrame(self.right_frame, text='Map', padding=20)
+        map_frame.pack(anchor="nw", fill="x")
+        map_widget = TkinterMapView(map_frame, width=1500, height=1500, corner_radius=0)
         map_widget.pack(fill="both", expand=True)
         map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
         map_widget.set_address("Kąkolewo, Poland", marker=False)
@@ -201,7 +205,7 @@ class MainWindowView:
         ttk.Label(gps_status_frame, textvariable=self.gps_data['Long'], width=20).pack(side=LEFT)
         ### Odometry status components ###
         odometry_status_frame = ttk.LabelFrame(self.main_status_frame, text='Odometry status', padding=20)
-        odometry_status_frame.pack(anchor="nw", fill="x", expand=True)
+        odometry_status_frame.pack(side=TOP, fill="x", pady=15)
         # Position #
         ttk.Label(odometry_status_frame, text="Position: ", width=15).grid(column=0, row=0)
         ttk.Label(odometry_status_frame, text="X: ").grid(column=1, row=0)
@@ -238,7 +242,7 @@ class MainWindowView:
         ttk.Label(odometry_status_frame, textvariable=self.odom_data['AngularVel'][2], width=7).grid(column=6, row=3)
         ### Robot diagnostic components ###
         diagnostic_status_frame = ttk.LabelFrame(self.main_status_frame, text='Diagnostic robot status', padding=20)
-        diagnostic_status_frame.pack(anchor="nw", fill="x", expand=True)
+        diagnostic_status_frame.pack(side=TOP, fill="x")
         # Component temperatures #
         temperature_frame = ttk.LabelFrame(diagnostic_status_frame, text="Component temperatures [℃]")
         temperature_frame.pack(side=TOP, fill="x", pady=15)
@@ -265,7 +269,7 @@ class MainWindowView:
         ttk.Label(battery_frame, text="Charge estimated [%]:").grid(column=2, row=0, padx=15)
         ttk.Label(battery_frame,
                   textvariable=self.diagnostic_data['Battery']['Charge'], width=7).grid(column=3, row=0)
-        self.add_battery(battery_frame, self.diagnostic_data['Battery']['Charge'], 4, 0)
+        self.add_battery_viz(battery_frame, self.diagnostic_data['Battery']['Charge'], 4, 0)
         # Error Status #
         error_frame = ttk.LabelFrame(diagnostic_status_frame, text="Battery status")
         error_frame.pack(side=TOP, fill="x", pady=15)
@@ -300,7 +304,7 @@ class MainWindowView:
         img_label.pack()  # place(x= 10, y = 10)
         # Create a Label Widget to display the text or Image
 
-    def add_battery(self, parent, variable, column, row):
+    def add_battery_viz(self, parent, variable, column, row):
         TROUGH_COLOR = "#000000"
         BAR_COLOR = 'green'
 
