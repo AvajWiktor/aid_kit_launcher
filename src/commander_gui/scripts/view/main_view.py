@@ -30,53 +30,16 @@ class MainWindowView:
         self.model = MainModel(self.robot_model)
         self.controller = MainController(self.robot_model, self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
-        self.tag_id = ttk.StringVar(value='0')
-        self.gps_data = {"Lat": ttk.StringVar(value='0.0'),
-                         "Long": ttk.StringVar(value='0.0')}
-        self.odom_data = {"Position":
-                              [ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0')],
-                          "Orientation":
-                              [ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0')],
-                          "LinearVel":
-                              [ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0')],
-                          "AngularVel":
-                              [ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0'),
-                               ttk.StringVar(value='0.0')]
-                          }
-        self.diagnostic_data = {"Temperature":
-                                    {"LeftDriver": ttk.StringVar(value='0.0'),
-                                     "LeftMotor": ttk.StringVar(value='0.0'),
-                                     "RightDriver": ttk.StringVar(value='0.0'),
-                                     "RightMotor": ttk.StringVar(value='0.0')
-                                     },
-                                "Battery":
-                                    {"Capacity": ttk.StringVar(value='0.0'),
-                                     "Charge": ttk.StringVar(value='0.0')
-                                     },
-                                "ErrorsStatus":
-                                    {"Timeout": ttk.StringVar(value='0.0'),
-                                     "Lockout": ttk.StringVar(value='0.0'),
-                                     "Estop": ttk.StringVar(value='0.0'),
-                                     "RosPause": ttk.StringVar(value='0.0'),
-                                     "NoBattery": ttk.StringVar(value='0.0'),
-                                     "CurrentLimit": ttk.StringVar(value='0.0')
-                                     }
-                                }
+        self.test_var = tk.IntVar(value=10)
         """
         *Code here*
         """
+        self.create_data_variables()
         self.create_layout()
-        self.add_menu_components()
-        self.add_status_components()
-        self.create_map_features()
+        self.create_menu_components()
+        self.create_status_components()
+        self.create_map_components()
+        self.create_mission_components()
         """
         *Code End*
         """
@@ -85,7 +48,10 @@ class MainWindowView:
 
     def update_data(self):
         """Refreshing robot data while main thread is working"""
+        temp = 0
+        incr = 1
         while threading.main_thread().is_alive():
+
             data = self.model.get_data()
             lat = data['GPS'].latitude
             long = data['GPS'].longitude
@@ -138,43 +104,53 @@ class MainWindowView:
                 self.diagnostic_data['ErrorsStatus']['RosPause'].set(diagnostic[2].values[3].value)
                 self.diagnostic_data['ErrorsStatus']['NoBattery'].set(diagnostic[2].values[4].value)
                 self.diagnostic_data['ErrorsStatus']['CurrentLimit'].set(diagnostic[2].values[5].value)
-            rospy.sleep(1/60)
-            #time.sleep(1 / 3)
+            rospy.sleep(1 / 60)
+            # time.sleep(1 / 3)
 
-    def executor(self):
+    def execute(self):
         pass
 
-    def walker(self):
-        pass
+    def add_action(self):
+        self.test_var.set(self.test_var.get() + 10)
+        print(self.test_var.get())
+        self.mission_progress_viz.configure(stripethickness=self.test_var.get())
 
     def target_walker(self):
         pass
 
-    def connector(self):
-        connector = Thread(name='Connector', target=self.controller.connect_to_robot)
-        # self.controller.connect_to_robot()
-        connector.start()
-
     def create_layout(self):
         """Packs basic frames to root frame"""
-        self.left_frame = ttk.Frame(self.root, padding=(5, 5, 5, 5))
-        self.center_frame = ttk.Frame(self.root, padding=(5, 5, 5, 5))
-        self.right_frame = ttk.Frame(self.root, padding=5)
+        self.top_left_frame = ttk.Frame(self.root, padding=5)
+        self.top_center_frame = ttk.Frame(self.root, padding=5)
+        self.top_right_frame = ttk.Frame(self.root, padding=5)
+        self.bottom_frame = ttk.Frame(self.root, padding=5)
 
-        self.left_frame.pack(side=LEFT, fill='both', expand=False)
-        self.center_frame.pack(side=LEFT, fill='both', expand=False)
-        self.right_frame.pack(side=LEFT, fill='both', expand=False)
+        self.top_left_frame.grid(row=0, column=0, sticky=NS)#pack(side=LEFT, anchor="nw",fill='both', expand=False)
+        self.top_center_frame.grid(row=0, column=1, sticky=NS)#pack(side=LEFT,anchor="nw", fill='both', expand=False)
+        self.top_right_frame.grid(row=0, column=2, sticky=NS)#pack(side=LEFT, anchor="nw",fill='both', expand=False)
+        self.bottom_frame.grid(row=1, columnspan=3, column=0, sticky=NSEW)#ack(side=BOTTOM, anchor="s", fill='both', expand=False)
 
-        self.menu_label_frame = ttk.LabelFrame(self.left_frame, text='Menu', padding=50)
-        self.menu_label_frame.pack(fill='both', expand=True)
+        self.menu_label_frame = ttk.LabelFrame(self.top_left_frame, text='Menu', padding=50)
+        self.menu_label_frame.pack(expand=False, anchor="n")
 
-        self.main_status_frame = ttk.LabelFrame(self.center_frame, text='Current Robot States & Actions', padding=50)
+        self.main_status_frame = ttk.LabelFrame(self.top_center_frame, text='Current Robot States & Actions',
+                                                padding=50)
         self.main_status_frame.pack(fill='both', expand=True)
 
-    def create_map_features(self):
-        map_frame = ttk.LabelFrame(self.right_frame, text='Map', padding=20)
+    def create_mission_components(self):
+        current_action_frame = ttk.LabelFrame(self.top_left_frame, text='Current Action', padding=20)
+        current_action_frame.pack(anchor='n', fill='both', expand=True)
+        ttk.Button(current_action_frame, text='xd').pack()
+
+        action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
+        action_list_frame.pack(anchor='n', fill='both', expand=True)
+
+        ttk.Button(action_list_frame, text="Akcja", width=100).pack()
+
+    def create_map_components(self):
+        map_frame = ttk.LabelFrame(self.top_right_frame, text='Map', padding=20)
         map_frame.pack(anchor="nw", fill="x")
-        map_widget = TkinterMapView(map_frame, width=1500, height=1500, corner_radius=0)
+        map_widget = TkinterMapView(map_frame, width=1200, height=1000, corner_radius=0)
         map_widget.pack(fill="both", expand=True)
         map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
         map_widget.set_address("Kąkolewo, Poland", marker=False)
@@ -186,14 +162,64 @@ class MainWindowView:
             [self.robot_marker.position, self.robot_marker.position, self.robot_marker.position,
              self.robot_marker.position])
 
-    def add_menu_components(self):
-        ttk.Label(self.menu_label_frame, text='Tag id').pack()
-        ttk.Button(self.menu_label_frame, text='Connect', width=10, command=self.connector).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Go to tag', width=10, command=self.walker).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Go to target', width=10, command=self.target_walker).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.executor).pack(pady=5)
+    def create_data_variables(self):
+        self.gps_data = {"Lat": ttk.StringVar(value='0.0'),
+                         "Long": ttk.StringVar(value='0.0')}
+        self.odom_data = {"Position":
+                              [ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0')],
+                          "Orientation":
+                              [ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0')],
+                          "LinearVel":
+                              [ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0')],
+                          "AngularVel":
+                              [ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0'),
+                               ttk.StringVar(value='0.0')]
+                          }
+        self.diagnostic_data = {"Temperature":
+                                    {"LeftDriver": ttk.StringVar(value='0.0'),
+                                     "LeftMotor": ttk.StringVar(value='0.0'),
+                                     "RightDriver": ttk.StringVar(value='0.0'),
+                                     "RightMotor": ttk.StringVar(value='0.0')
+                                     },
+                                "Battery":
+                                    {"Capacity": ttk.StringVar(value='0.0'),
+                                     "Charge": ttk.StringVar(value='0.0')
+                                     },
+                                "ErrorsStatus":
+                                    {"Timeout": ttk.StringVar(value='0.0'),
+                                     "Lockout": ttk.StringVar(value='0.0'),
+                                     "Estop": ttk.StringVar(value='0.0'),
+                                     "RosPause": ttk.StringVar(value='0.0'),
+                                     "NoBattery": ttk.StringVar(value='0.0'),
+                                     "CurrentLimit": ttk.StringVar(value='0.0')
+                                     }
+                                }
 
-    def add_status_components(self):
+    def create_menu_components(self):
+        ttk.Button(self.menu_label_frame, text='Add Action', width=10, command=self.add_action).pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.execute).pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
+        self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,
+                                              amountused=43,
+                                              padding=15,
+                                              textright=" %",
+                                              subtextfont="-size 10 -weight bold",
+                                              metertype="semi",
+                                              subtext="Mission",
+                                              interactive=True,
+                                              stripethickness=self.test_var.get(),
+                                              )
+        self.mission_progress_viz.pack()
+
+    def create_status_components(self):
         ### GPS status components ###
         gps_status_frame = ttk.LabelFrame(self.main_status_frame, text='GPS status', padding=20)
         gps_status_frame.pack(anchor="nw", fill="x")
@@ -269,7 +295,7 @@ class MainWindowView:
         ttk.Label(battery_frame, text="Charge estimated [%]:").grid(column=2, row=0, padx=15)
         ttk.Label(battery_frame,
                   textvariable=self.diagnostic_data['Battery']['Charge'], width=7).grid(column=3, row=0)
-        self.add_battery_viz(battery_frame, self.diagnostic_data['Battery']['Charge'], 4, 0)
+        self.create_battery_viz(battery_frame, self.diagnostic_data['Battery']['Charge'], 4, 0)
         # Error Status #
         error_frame = ttk.LabelFrame(diagnostic_status_frame, text="Battery status")
         error_frame.pack(side=TOP, fill="x", pady=15)
@@ -293,18 +319,7 @@ class MainWindowView:
         ttk.Label(error_frame,
                   textvariable=self.diagnostic_data['ErrorsStatus']['CurrentLimit'], width=7).grid(column=11, row=0)
 
-    def add_image(self, img_name):
-        img = Image.open(f'utilities/{img_name}.png')
-        img.resize((50, 50), Image.ANTIALIAS)
-        test = ImageTk.PhotoImage(img)
-        img_label = tk.Label(self.main_status_frame, image=test)
-        img_label.image = test
-
-        # Position image
-        img_label.pack()  # place(x= 10, y = 10)
-        # Create a Label Widget to display the text or Image
-
-    def add_battery_viz(self, parent, variable, column, row):
+    def create_battery_viz(self, parent, variable, column, row):
         TROUGH_COLOR = "#000000"
         BAR_COLOR = 'green'
 
@@ -315,6 +330,12 @@ class MainWindowView:
                         style="bar.Horizontal.TProgressbar").grid(column=column, row=row, pady=15)
 
     def update_battery_bar(self):
+        """
+        Update battery visualization bar based on current estimated charge level
+        Red  <= 25%
+        Yellow 25% - 75%
+        Green >= 75%
+        """
         curr_val = float(self.diagnostic_data['Battery']['Charge'].get())
         if 25.0 < curr_val < 50.0:
             BAR_COLOR = 'yellow'
