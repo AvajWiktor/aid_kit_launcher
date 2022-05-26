@@ -10,6 +10,7 @@ from ttkbootstrap.constants import *
 from threading import Thread
 from PIL import ImageTk, Image
 from model.main_model import MainModel
+from model.action_model import ActionModel, ActionType
 from controller.main_controller import MainController
 from husky_msgs.msg import HuskyStatus
 from geometry_msgs.msg import Pose, Point, Quaternion
@@ -31,6 +32,7 @@ class MainWindowView:
         self.controller = MainController(self.robot_model, self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
+        self.action_list = []
         """
         *Code here*
         """
@@ -108,12 +110,14 @@ class MainWindowView:
             # time.sleep(1 / 3)
 
     def execute(self):
-        pass
+        print(self.test_var.get())
+        self.mission_progress_viz.configure(amountused=self.test_var.get() / 10)
+
+    def remove_action(self, action):
+        self.action_list.remove(action)
 
     def add_action(self):
-        self.test_var.set(self.test_var.get() + 10)
-        print(self.test_var.get())
-        self.mission_progress_viz.configure(stripethickness=self.test_var.get())
+        self.action_list.append(ActionModel(self.action_list_frame, ActionType.MoveTo, 0, len(self.action_list), self))
 
     def target_walker(self):
         pass
@@ -125,10 +129,11 @@ class MainWindowView:
         self.top_right_frame = ttk.Frame(self.root, padding=5)
         self.bottom_frame = ttk.Frame(self.root, padding=5)
 
-        self.top_left_frame.grid(row=0, column=0, sticky=NS)#pack(side=LEFT, anchor="nw",fill='both', expand=False)
-        self.top_center_frame.grid(row=0, column=1, sticky=NS)#pack(side=LEFT,anchor="nw", fill='both', expand=False)
-        self.top_right_frame.grid(row=0, column=2, sticky=NS)#pack(side=LEFT, anchor="nw",fill='both', expand=False)
-        self.bottom_frame.grid(row=1, columnspan=3, column=0, sticky=NSEW)#ack(side=BOTTOM, anchor="s", fill='both', expand=False)
+        self.top_left_frame.grid(row=0, column=0, sticky=NS)  # pack(side=LEFT, anchor="nw",fill='both', expand=False)
+        self.top_center_frame.grid(row=0, column=1, sticky=NS)  # pack(side=LEFT,anchor="nw", fill='both', expand=False)
+        self.top_right_frame.grid(row=0, column=2, sticky=NS)  # pack(side=LEFT, anchor="nw",fill='both', expand=False)
+        self.bottom_frame.grid(row=1, columnspan=3, column=0,
+                               sticky=NSEW)  # ack(side=BOTTOM, anchor="s", fill='both', expand=False)
 
         self.menu_label_frame = ttk.LabelFrame(self.top_left_frame, text='Menu', padding=50)
         self.menu_label_frame.pack(expand=False, anchor="n")
@@ -142,10 +147,8 @@ class MainWindowView:
         current_action_frame.pack(anchor='n', fill='both', expand=True)
         ttk.Button(current_action_frame, text='xd').pack()
 
-        action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
-        action_list_frame.pack(anchor='n', fill='both', expand=True)
-
-        ttk.Button(action_list_frame, text="Akcja", width=100).pack()
+        self.action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
+        self.action_list_frame.pack(anchor='n', fill='both', expand=True)
 
     def create_map_components(self):
         map_frame = ttk.LabelFrame(self.top_right_frame, text='Map', padding=20)
@@ -208,14 +211,14 @@ class MainWindowView:
         ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.execute).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
         self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,
-                                              amountused=43,
+                                              amountused=0,
                                               padding=15,
                                               textright=" %",
                                               subtextfont="-size 10 -weight bold",
                                               metertype="semi",
                                               subtext="Mission",
                                               interactive=True,
-                                              stripethickness=self.test_var.get(),
+                                              stripethickness=10,
                                               )
         self.mission_progress_viz.pack()
 
@@ -297,7 +300,7 @@ class MainWindowView:
                   textvariable=self.diagnostic_data['Battery']['Charge'], width=7).grid(column=3, row=0)
         self.create_battery_viz(battery_frame, self.diagnostic_data['Battery']['Charge'], 4, 0)
         # Error Status #
-        error_frame = ttk.LabelFrame(diagnostic_status_frame, text="Battery status")
+        error_frame = ttk.LabelFrame(diagnostic_status_frame, text="Error status")
         error_frame.pack(side=TOP, fill="x", pady=15)
 
         ttk.Label(error_frame, text="Timeout: ").grid(column=0, row=0, pady=15, padx=15)

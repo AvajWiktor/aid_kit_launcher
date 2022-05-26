@@ -21,7 +21,6 @@ from husky_msgs.msg import HuskyStatus
 from diagnostic_msgs.msg import DiagnosticArray
 
 
-
 class MainModel:
     """
     Module responsible for detecting aruco tags and storing their position
@@ -35,6 +34,7 @@ class MainModel:
         self.odom_subscriber = rospy.Subscriber("odometry/filtered", Odometry, self.odom_callback)
         self.gps_subscriber = rospy.Subscriber("gps_point_lat_lng", NavSatFix, self.gps_callback)
         self.diagnostic_subscriber = rospy.Subscriber("diagnostics", DiagnosticArray, self.diagnostic_callback)
+        self.action_list = []
 
     def get_data(self):
         return self.model_data
@@ -71,3 +71,8 @@ class MainModel:
             self.model_data['Diagnostic'] = data
             #print(data.status[0].values)
             rospy.sleep(0.1)
+
+    def execute(self):
+        
+        for action in self.action_list:
+            action.execute()
