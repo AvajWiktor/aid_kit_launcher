@@ -106,6 +106,8 @@ class MainWindowView:
                 self.diagnostic_data['ErrorsStatus']['RosPause'].set(diagnostic[2].values[3].value)
                 self.diagnostic_data['ErrorsStatus']['NoBattery'].set(diagnostic[2].values[4].value)
                 self.diagnostic_data['ErrorsStatus']['CurrentLimit'].set(diagnostic[2].values[5].value)
+            #if len(self.action_list) > 0:
+            #    print(self.action_list[0].get_data()['RotateBy']['direction'].get())
             rospy.sleep(1 / 60)
             # time.sleep(1 / 3)
 
@@ -115,9 +117,15 @@ class MainWindowView:
 
     def remove_action(self, action):
         self.action_list.remove(action)
+        for it, action in enumerate(self.action_list):
+            action.grid(row=0, column=it)
 
-    def add_action(self):
-        self.action_list.append(ActionModel(self.action_list_frame, ActionType.MoveTo, 0, len(self.action_list), self))
+    def add_action_on_click(self):
+        self.action_popup_window.deiconify()
+
+    def add_action(self, action_number):
+        print(action_number)
+        self.action_list.append(ActionModel(self.action_list_frame, action_number, 0, len(self.action_list), self))
 
     def target_walker(self):
         pass
@@ -207,7 +215,24 @@ class MainWindowView:
                                 }
 
     def create_menu_components(self):
-        ttk.Button(self.menu_label_frame, text='Add Action', width=10, command=self.add_action).pack(pady=5)
+        # Popup window for choosing action from list #
+        self.action_popup_window = tk.Toplevel(self.menu_label_frame)
+        self.action_popup_window.title(f"Choose action")
+        self.action_popup_window.protocol("WM_DELETE_WINDOW", self.action_popup_window.withdraw)
+        self.action_popup_window.withdraw()
+        tk.Button(self.action_popup_window, text=ActionType.MoveTo.name, command=lambda: self.add_action(ActionType.MoveTo)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.DeployAidKit.name, command=lambda: self.add_action(ActionType.DeployAidKit)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.Explore.name, command=lambda: self.add_action(ActionType.Explore)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.SeekForHuman.name, command=lambda: self.add_action(ActionType.SeekForHuman)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.RotateBy.name, command=lambda: self.add_action(ActionType.RotateBy)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.MoveBy.name, command=lambda: self.add_action(ActionType.MoveBy)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.MoveThrough.name, command=lambda: self.add_action(ActionType.MoveThrough)).pack(fill='both')
+
+
+
+
+        # # # # # # # # # # # # # # # # # # # # # # # #
+        ttk.Button(self.menu_label_frame, text='Add Action', width=10, command=self.add_action_on_click).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.execute).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
         self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,

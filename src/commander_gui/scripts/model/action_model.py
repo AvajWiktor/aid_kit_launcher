@@ -33,11 +33,20 @@ class ActionType(Enum):
 
 class ActionModel(tk.Button):
     def __init__(self, parent_frame, action_type, row, column, main_model):
+        self.data = {
+            'MoveTo': {'x': None, 'y': None},
+            'DeployAidKit': {},
+            'Explore': {},
+            'SeekForHuman': {},
+            'RotateBy': {'direction': None, 'angle': None},
+            'MoveBy': {'x': None, 'y': None},
+            'MoveThrough': {'waypoints': []}
+        }
         self.main_model = main_model
         self.action_type = action_type
         self.parent_frame = parent_frame
         self.create_popup_window()
-        super().__init__(parent_frame, text=action_type.name, width=10, height=5)
+        super().__init__(parent_frame, text=self.action_type.name, width=10, height=5)
         self.grid(row=row, column=column)
         self.bind("<Button-1>", self.left_on_click)
         self.bind("<Button-3>", self.right_on_click)
@@ -80,6 +89,59 @@ class ActionModel(tk.Button):
         self.popup_window.title(f"Configure {self.action_type.name} action")
         self.popup_window.protocol("WM_DELETE_WINDOW", self.popup_window.withdraw)
         self.popup_window.withdraw()
+        data_label = ttk.LabelFrame(self.popup_window, text="Action data")
+        data_label.pack()
+        if self.action_type == ActionType.MoveTo:
+            self.data['MoveTo']['x'] = ttk.StringVar(value="0.0")
+            self.data['MoveTo']['y'] = ttk.StringVar(value="0.0")
+            ttk.Label(data_label, text="Coordinates").grid(row=0, columnspan=2, column=0)
+            ttk.Label(data_label, text="X").grid(row=1, column=0)
+            ttk.Label(data_label, text="Y").grid(row=1, column=1)
+            ttk.Entry(data_label, textvariable=self.data['MoveTo']['x']).grid(row=2, column=0)
+            ttk.Entry(data_label, textvariable=self.data['MoveTo']['y']).grid(row=2, column=1)
+
+        elif self.action_type == ActionType.DeployAidKit:
+            ttk.Button(data_label, text=":)", command=lambda: print("2137")).pack()
+        elif self.action_type == ActionType.Explore:
+            ttk.Button(data_label, text=":)", command=lambda: print("2137")).pack()
+        elif self.action_type == ActionType.SeekForHuman:
+            ttk.Button(data_label, text=":)", command=lambda: print("2137")).pack()
+        elif self.action_type == ActionType.RotateBy:
+            self.data['RotateBy']['direction'] = ttk.StringVar(value="0.0")
+            self.data['RotateBy']['angle'] = ttk.StringVar(value="0.0")
+            ttk.Label(data_label, text="Rotate data").grid(row=0, columnspan=2, column=0)
+            ttk.Label(data_label, text="Direction").grid(row=1, column=0)
+            ttk.Label(data_label, text="Angle").grid(row=1, column=1)
+            combobox = ttk.Combobox(data_label, state='readonly',values=('Left','Right'), textvariable= self.data['RotateBy']['direction'])
+            combobox.set('Left')
+            combobox.grid(row=2, column=0)
+            ttk.Entry(data_label, textvariable= self.data['RotateBy']['angle']).grid(row=2, column=1)
+        elif self.action_type == ActionType.MoveBy:
+            self.data['MoveBy']['x'] = ttk.StringVar(value="0.0")
+            self.data['MoveBy']['y'] = ttk.StringVar(value="0.0")
+            ttk.Label(data_label, text="Move by").grid(row=0, columnspan=2, column=0)
+            ttk.Label(data_label, text="X").grid(row=1, column=0)
+            ttk.Label(data_label, text="Y").grid(row=1, column=1)
+            ttk.Entry(data_label, textvariable=self.data['MoveBy']['x']).grid(row=2, column=0)
+            ttk.Entry(data_label, textvariable=self.data['MoveBy']['y']).grid(row=2, column=1)
+        elif self.action_type == ActionType.MoveThrough:
+            ttk.Button(data_label, text=":)", command=lambda: print("2137")).pack()
+
+    def get_data(self):
+        return self.data
 
     def execute(self):
-        pass
+        if self.action_type == ActionType.MoveTo:
+            pass
+        elif self.action_type == ActionType.DeployAidKit:
+            pass
+        elif self.action_type == ActionType.Explore:
+            pass
+        elif self.action_type == ActionType.SeekForHuman:
+            pass
+        elif self.action_type == ActionType.RotateBy:
+            pass
+        elif self.action_type == ActionType.MoveBy:
+            pass
+        elif self.action_type == ActionType.MoveThrough:
+            pass
