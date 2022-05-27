@@ -112,8 +112,10 @@ class MainWindowView:
             # time.sleep(1 / 3)
 
     def execute(self):
-        print(self.test_var.get())
-        self.mission_progress_viz.configure(amountused=self.test_var.get() / 10)
+        #print(self.test_var.get())
+        #self.mission_progress_viz.configure(amountused=self.test_var.get() / 10)
+        for action in self.action_list:
+            action.execute()
 
     def remove_action(self, action):
         self.action_list.remove(action)

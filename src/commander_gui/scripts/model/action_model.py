@@ -15,6 +15,10 @@ from husky_msgs.msg import HuskyStatus
 from geometry_msgs.msg import Pose, Point, Quaternion
 from tkinter import filedialog as fd
 import rospy
+import actionlib
+from move_base_msgs.msg import MoveBaseActionGoal,MoveBaseGoal,MoveBaseResult, MoveBaseActionResult, MoveBaseAction
+from std_msgs.msg import Header
+from actionlib_msgs.msg import GoalID
 from tkintermapview import TkinterMapView
 import time
 from enum import Enum
@@ -130,9 +134,41 @@ class ActionModel(tk.Button):
     def get_data(self):
         return self.data
 
+    def callback(self, data):
+        print(data.status)
+        self.result = data.status
+
+    def prepare_move_to_data(self):
+        current_time = rospy.rostime.get_rostime()
+        action_goal = MoveBaseActionGoal()
+        action_goal.header.frame_id = ''
+        action_goal.header.stamp = current_time
+        goal = MoveBaseGoal()
+        goal.target_pose.header.stamp = current_time
+        print(goal.target_pose.header.stamp)
+        goal.target_pose.header.frame_id = 'odom'
+        goal.target_pose.pose.position.x = float(self.data['MoveTo']['x'].get())
+        goal.target_pose.pose.position.y = float(self.data['MoveTo']['y'].get())
+        goal.target_pose.pose.orientation.x = 0.0
+        goal.target_pose.pose.orientation.y = 0.0
+        goal.target_pose.pose.orientation.z = -0.9664807502798402
+        goal.target_pose.pose.orientation.w = 0.2567390880612401
+        action_goal.goal = goal
+        action_goal.goal_id.id = 'JP2'
+        action_goal.goal_id.stamp = current_time
+        return goal
+
+
     def execute(self):
         if self.action_type == ActionType.MoveTo:
-            pass
+            self.result = 0
+            self.goal_client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
+            self.goal_client.wait_for_server()
+            goal = self.prepare_move_to_data()
+            self.goal_client.send_goal(goal)
+            self.goal_client.wait_for_result()
+            print("Finito")
+
         elif self.action_type == ActionType.DeployAidKit:
             pass
         elif self.action_type == ActionType.Explore:
