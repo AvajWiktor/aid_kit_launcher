@@ -167,7 +167,7 @@ class MainWindowView:
         map_widget.pack(fill="both", expand=True)
         map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
         map_widget.set_address("Kąkolewo, Poland", marker=False)
-        robot_image = tk.PhotoImage(file='utilities/robot_img.png')
+        robot_image = tk.PhotoImage(file='utilities/robot_img1.png')
         self.robot_marker = map_widget.set_marker(52.2366, 16.2446, text="Husky", image=robot_image)
 
         self.robot_marker.image_zoom_visibility = (0, float('inf'))
