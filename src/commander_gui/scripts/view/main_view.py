@@ -22,14 +22,13 @@ import json
 
 
 class MainWindowView:
-    def __init__(self, robot_model):
+    def __init__(self):
         self.root = ttk.Window(themename='cyborg', title='Commander GUI')
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
         self.root.minsize(width=1920, height=1080)
-        self.robot_model = robot_model
-        self.model = MainModel(self.robot_model)
-        self.controller = MainController(self.robot_model, self.model)
+        self.model = MainModel()
+        self.controller = MainController(self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
         self.action_list = []
@@ -111,9 +110,11 @@ class MainWindowView:
             rospy.sleep(1 / 60)
             # time.sleep(1 / 3)
 
+    def executor(self):
+        t = Thread(name="executor", target=self.execute)
+        t.start()
+
     def execute(self):
-        #print(self.test_var.get())
-        #self.mission_progress_viz.configure(amountused=self.test_var.get() / 10)
         for action in self.action_list:
             action.execute()
 
@@ -127,7 +128,7 @@ class MainWindowView:
 
     def add_action(self, action_number):
         print(action_number)
-        self.action_list.append(ActionModel(self.action_list_frame, action_number, 0, len(self.action_list), self))
+        self.action_list.append(ActionModel(self.action_list_frame, action_number, 0, len(self.action_list), self.model, self))
 
     def target_walker(self):
         pass
@@ -235,7 +236,7 @@ class MainWindowView:
 
         # # # # # # # # # # # # # # # # # # # # # # # #
         ttk.Button(self.menu_label_frame, text='Add Action', width=10, command=self.add_action_on_click).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.execute).pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.executor).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
         self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,
                                               amountused=0,

@@ -1,4 +1,3 @@
-from model.robot_model import RobotModel
 import rospy
 import json
 
@@ -26,15 +25,13 @@ class MainModel:
     Module responsible for detecting aruco tags and storing their position
     """
 
-    def __init__(self, robot_model):
-        self.robot_model = robot_model
+    def __init__(self):
         self.tag_id = None
         self.tag_params = None
         self.model_data = {'GPS': NavSatFix, 'Odom': Odometry, 'Diagnostic': HuskyStatus}
         self.odom_subscriber = rospy.Subscriber("odometry/filtered", Odometry, self.odom_callback)
         self.gps_subscriber = rospy.Subscriber("gps_point_lat_lng", NavSatFix, self.gps_callback)
         self.diagnostic_subscriber = rospy.Subscriber("diagnostics", DiagnosticArray, self.diagnostic_callback)
-        self.action_list = []
 
     def get_data(self):
         return self.model_data
@@ -71,8 +68,3 @@ class MainModel:
             self.model_data['Diagnostic'] = data
             #print(data.status[0].values)
             rospy.sleep(0.1)
-
-    def execute(self):
-        
-        for action in self.action_list:
-            action.execute()

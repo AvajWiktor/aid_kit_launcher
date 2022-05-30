@@ -24,17 +24,18 @@ class ActionType(Enum):
 
 
 class ActionModel(tk.Button):
-    def __init__(self, parent_frame, action_type, row, column, main_model):
+    def __init__(self, parent_frame, action_type, row, column, main_model, main_view):
         self.data = {
             'MoveTo': {'x': ttk.StringVar(value="0.0"), 'y': ttk.StringVar(value="0.0"), 'zo': ttk.IntVar(value=0)},
             'DeployAidKit': {},
             'Explore': {},
             'SeekForHuman': {},
             'RotateBy': {'direction': None, 'angle': None},
-            'MoveBy': {'x': None, 'y': None},
+            'MoveBy': {'x': ttk.StringVar(value="0.0"), 'y': ttk.StringVar(value="0.0")},
             'MoveThrough': {'waypoints': []}
         }
         self.main_model = main_model
+        self.main_view = main_view
         self.action_type = action_type
         self.parent_frame = parent_frame
         self.create_popup_window()
@@ -47,7 +48,7 @@ class ActionModel(tk.Button):
         self.popup_window.deiconify()
 
     def right_on_click(self, event):
-        self.main_model.remove_action(self)
+        self.main_view.remove_action(self)
         self.popup_window.destroy()
         self.destroy()
 
@@ -135,8 +136,6 @@ class ActionModel(tk.Button):
             combobox.grid(row=2, column=0)
             ttk.Entry(data_label, textvariable=self.data['RotateBy']['angle']).grid(row=2, column=1)
         elif self.action_type == ActionType.MoveBy:
-            self.data['MoveBy']['x'] = ttk.StringVar(value="0.0")
-            self.data['MoveBy']['y'] = ttk.StringVar(value="0.0")
             ttk.Label(data_label, text="Move by").grid(row=0, columnspan=2, column=0)
             ttk.Label(data_label, text="X").grid(row=1, column=0)
             ttk.Label(data_label, text="Y").grid(row=1, column=1)
@@ -152,6 +151,24 @@ class ActionModel(tk.Button):
         print(data.status)
         self.result = data.status
 
+    def prepare_move_by_data(self):
+        data = self.main_model.get_data()['Odom'].pose
+        current_time = rospy.rostime.get_rostime()
+        action_goal = MoveBaseActionGoal()
+        action_goal.header.frame_id = ''
+        action_goal.header.stamp = current_time
+        goal = MoveBaseGoal()
+        goal.target_pose.header.stamp = current_time
+        goal.target_pose.header.frame_id = 'odom'
+        goal.target_pose.pose.position.x = data.pose.position.x +float(self.data['MoveBy']['x'].get())
+        goal.target_pose.pose.position.y = data.pose.position.y + float(self.data['MoveBy']['y'].get())
+        goal.target_pose.pose.orientation = data.pose.orientation
+        action_goal.goal = goal
+        action_goal.goal_id.id = 'JP2'
+        action_goal.goal_id.stamp = current_time
+        print(f"Desired point - X:{goal.target_pose.pose.position.x} Y:{goal.target_pose.pose.position.y} Orient: {data.pose.orientation}")
+        return goal
+
     def prepare_move_to_data(self):
         current_time = rospy.rostime.get_rostime()
         action_goal = MoveBaseActionGoal()
@@ -159,12 +176,10 @@ class ActionModel(tk.Button):
         action_goal.header.stamp = current_time
         goal = MoveBaseGoal()
         goal.target_pose.header.stamp = current_time
-        print(goal.target_pose.header.stamp)
         goal.target_pose.header.frame_id = 'odom'
         goal.target_pose.pose.position.x = float(self.data['MoveTo']['x'].get())
         goal.target_pose.pose.position.y = float(self.data['MoveTo']['y'].get())
         temp_angle = float(self.data['MoveTo']['zo'].get()) * 2 * pi / 360.0
-        print(temp_angle)
         temp_angle = quaternion_from_euler(0, 0, temp_angle)
         goal.target_pose.pose.orientation.x = 0.0
         goal.target_pose.pose.orientation.y = 0.0
@@ -177,7 +192,6 @@ class ActionModel(tk.Button):
 
     def execute(self):
         if self.action_type == ActionType.MoveTo:
-            self.result = 0
             self.goal_client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
             self.goal_client.wait_for_server()
             goal = self.prepare_move_to_data()
@@ -194,6 +208,12 @@ class ActionModel(tk.Button):
         elif self.action_type == ActionType.RotateBy:
             pass
         elif self.action_type == ActionType.MoveBy:
-            pass
+            print("MoveBy Action")
+            self.goal_client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
+            self.goal_client.wait_for_server()
+            goal = self.prepare_move_by_data()
+            self.goal_client.send_goal(goal)
+            self.goal_client.wait_for_result()
+            print("Finito")
         elif self.action_type == ActionType.MoveThrough:
             pass
