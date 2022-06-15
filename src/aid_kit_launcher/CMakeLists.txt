@@ -8,10 +8,11 @@ project(aid_kit_launcher)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  message_generation
+message_generation
+message_runtime
+roscpp
+rospy
+std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -56,13 +57,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 
 ## Generate services in the 'srv' folder
-#add_service_files(
-#   FILES
-#   ServoSrv.srv
-#)
-generate_messages(
-  DEPENDENCIES
-  std_msgs
+add_service_files(
+   FILES
+   Launcher.srv
 )
 #   Service2.srv
 # )
@@ -75,10 +72,10 @@ generate_messages(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -110,9 +107,9 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES servo
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+  INCLUDE_DIRS include
+  LIBRARIES aid_kit_launcher
+  CATKIN_DEPENDS roscpp rospy std_msgs message_runtime message_generation
 #  DEPENDS system_lib
 )
 

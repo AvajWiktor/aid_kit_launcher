@@ -1,10 +1,12 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 import rospy
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 from time import sleep
-from std_msgs.msg import Bool
-from std_srvs.srv import SetBoolRequest,SetBoolResponse,SetBool
-
+import serial
+#from std_msgs.msg import Bool
+#from std_srvs.srv import SetBoolRequest,SetBoolResponse,SetBool
+from aid_kit_launcher.srv import Launcher
+"""
 #Servo works in range 2.5-12.5 duty which means 0-180 degrees
 
 global duty #Pwm duty cycle
@@ -33,11 +35,27 @@ def move_servo(req):
 		return True, "Successful operation"
 	except ValueError:
 		return False, ValueError
-	
+	"""
+global ser
+ser = serial.Serial(port='/tmp/printer', baudrate=256000)
 
-rospy.init_node('servo_server', anonymous=True) #Initialize ros node
-s = rospy.Service('move',SetBool ,move_servo) #Create rosservice instance with callback
+def execute(req):
+	global ser
+	if req.command == 1:
+		print("deploy aidkit\n")
+		if ser.isOpen():
+			ser.close()
+		ser.open()
+		ser.write(b'deploy\r\n')
+		print(ser.read())
+		ser.close()
+		return True
+	else:
+		print("Rotate camera\n")
+		#rotate camera by req.command angle
+		return True
+
+rospy.init_node('launcher_service', anonymous=True) #Initialize ros node
+s = rospy.Service('send_command',Launcher ,execute) #Create rosservice instance with callback
 print ("Servo Service is ready")
 rospy.spin() #Wait for ctrl+C
-pwm.stop() #Stop Pwm signal
-GPIO.cleanup() #Clean GPIO
