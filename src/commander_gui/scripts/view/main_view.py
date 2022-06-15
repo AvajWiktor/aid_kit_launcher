@@ -2,6 +2,7 @@ import os
 import threading
 import tkinter as tk
 import types
+import serial
 
 import ttkbootstrap.constants
 
@@ -13,6 +14,7 @@ from model.main_model import MainModel
 from model.action_model import ActionModel, ActionType
 from controller.main_controller import MainController
 from husky_msgs.msg import HuskyStatus
+from aid_kit_launcher.srv import Launcher
 from geometry_msgs.msg import Pose, Point, Quaternion
 from tkinter import filedialog as fd
 import rospy
@@ -32,6 +34,7 @@ class MainWindowView:
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
         self.action_list = []
+        self.marker_list = {}
         """
         *Code here*
         """
@@ -41,11 +44,17 @@ class MainWindowView:
         self.create_status_components()
         self.create_map_components()
         self.create_mission_components()
+        self.create_serial()
         """
         *Code End*
         """
         self.updater.start()
         self.root.mainloop()
+
+    def create_serial(self):
+        self.ser = serial.Serial(
+            port='/tmp/printer',
+            baudrate=256000)
 
     def update_data(self):
         """Refreshing robot data while main thread is working"""
@@ -105,13 +114,17 @@ class MainWindowView:
                 self.diagnostic_data['ErrorsStatus']['RosPause'].set(diagnostic[2].values[3].value)
                 self.diagnostic_data['ErrorsStatus']['NoBattery'].set(diagnostic[2].values[4].value)
                 self.diagnostic_data['ErrorsStatus']['CurrentLimit'].set(diagnostic[2].values[5].value)
-            #if len(self.action_list) > 0:
+            # if len(self.action_list) > 0:
             #    print(self.action_list[0].get_data()['RotateBy']['direction'].get())
             rospy.sleep(1 / 60)
             # time.sleep(1 / 3)
 
     def executor(self):
         t = Thread(name="executor", target=self.execute)
+        t.start()
+
+    def deployer(self):
+        t = Thread(name="deployer", target=self.deploy_aidkit)
         t.start()
 
     def execute(self):
@@ -128,7 +141,8 @@ class MainWindowView:
 
     def add_action(self, action_number):
         print(action_number)
-        self.action_list.append(ActionModel(self.action_list_frame, action_number, 0, len(self.action_list), self.model, self))
+        self.action_list.append(
+            ActionModel(self.action_list_frame, action_number, 0, len(self.action_list), self.model, self))
 
     def target_walker(self):
         pass
@@ -164,15 +178,16 @@ class MainWindowView:
     def create_map_components(self):
         map_frame = ttk.LabelFrame(self.top_right_frame, text='Map', padding=20)
         map_frame.pack(anchor="nw", fill="x")
-        map_widget = TkinterMapView(map_frame, width=1200, height=1000, corner_radius=0)
-        map_widget.pack(fill="both", expand=True)
-        map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
-        map_widget.set_address("Kąkolewo, Poland", marker=False)
+        self.map_widget = TkinterMapView(map_frame, width=1200, height=1000, corner_radius=0)
+        self.map_widget.pack(fill="both", expand=True)
+        self.map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
+        self.map_widget.set_address("Kąkolewo, Poland", marker=False)
+        self.map_widget.set_position(52.2366, 16.2446)
         robot_image = tk.PhotoImage(file='utilities/robot_img1.png')
-        self.robot_marker = map_widget.set_marker(52.2366, 16.2446, text="Husky", image=robot_image)
+        self.robot_marker = self.map_widget.set_marker(52.2366, 16.2446, text="Husky", image=robot_image)
 
         self.robot_marker.image_zoom_visibility = (0, float('inf'))
-        self.robot_path = map_widget.set_path(
+        self.robot_path = self.map_widget.set_path(
             [self.robot_marker.position, self.robot_marker.position, self.robot_marker.position,
              self.robot_marker.position])
 
@@ -223,19 +238,28 @@ class MainWindowView:
         self.action_popup_window.title(f"Choose action")
         self.action_popup_window.protocol("WM_DELETE_WINDOW", self.action_popup_window.withdraw)
         self.action_popup_window.withdraw()
-        tk.Button(self.action_popup_window, text=ActionType.MoveTo.name, command=lambda: self.add_action(ActionType.MoveTo)).pack(fill='both')
-        tk.Button(self.action_popup_window, text=ActionType.DeployAidKit.name, command=lambda: self.add_action(ActionType.DeployAidKit)).pack(fill='both')
-        tk.Button(self.action_popup_window, text=ActionType.Explore.name, command=lambda: self.add_action(ActionType.Explore)).pack(fill='both')
-        tk.Button(self.action_popup_window, text=ActionType.SeekForHuman.name, command=lambda: self.add_action(ActionType.SeekForHuman)).pack(fill='both')
-        tk.Button(self.action_popup_window, text=ActionType.RotateBy.name, command=lambda: self.add_action(ActionType.RotateBy)).pack(fill='both')
-        tk.Button(self.action_popup_window, text=ActionType.MoveBy.name, command=lambda: self.add_action(ActionType.MoveBy)).pack(fill='both')
-        tk.Button(self.action_popup_window, text=ActionType.MoveThrough.name, command=lambda: self.add_action(ActionType.MoveThrough)).pack(fill='both')
-
-
-
+        tk.Button(self.action_popup_window, text=ActionType.MoveTo.name,
+                  command=lambda: self.add_action(ActionType.MoveTo)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.DeployAidKit.name,
+                  command=lambda: self.add_action(ActionType.DeployAidKit)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.Explore.name,
+                  command=lambda: self.add_action(ActionType.Explore)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.SeekForHuman.name,
+                  command=lambda: self.add_action(ActionType.SeekForHuman)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.RotateBy.name,
+                  command=lambda: self.add_action(ActionType.RotateBy)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.MoveBy.name,
+                  command=lambda: self.add_action(ActionType.MoveBy)).pack(fill='both')
+        tk.Button(self.action_popup_window, text=ActionType.MoveThrough.name,
+                  command=lambda: self.add_action(ActionType.MoveThrough)).pack(fill='both')
 
         # # # # # # # # # # # # # # # # # # # # # # # #
         ttk.Button(self.menu_label_frame, text='Add Action', width=10, command=self.add_action_on_click).pack(pady=5)
+        self.marker_entry = ttk.Entry(self.menu_label_frame, width=10)
+        self.marker_entry.pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Deploy Aidkit', width=10, command=self.deployer).pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Load markers', width=10, command=self.load_waypoints).pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Remove markers', width=10, command=self.remove_waypoint).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.executor).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
         self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,
@@ -249,6 +273,15 @@ class MainWindowView:
                                               stripethickness=10,
                                               )
         self.mission_progress_viz.pack()
+
+    def deploy_aidkit(self):
+        #rospy.wait_for_service('send_command')
+        try:
+            send_command = rospy.ServiceProxy('send_command', Launcher)
+            command_response = send_command(1)
+            return command_response.response
+        except rospy.ServiceException as e:
+            print("Service call failed: %s"%e)
 
     def create_status_components(self):
         ### GPS status components ###
@@ -386,3 +419,14 @@ class MainWindowView:
             self.root.style.configure("bar.Horizontal.TProgressbar",
                                       bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
                                       darkcolor=BAR_COLOR)
+
+    def load_waypoints(self):
+        f = open(f"utilities/marker_coords.json")
+        data = json.load(f)
+
+        for i, marker in enumerate(data):
+            self.marker_list[f'marker_{i}'] = self.map_widget.set_marker(marker[0], marker[1], text=f'Marker_{i}')
+
+    def remove_waypoint(self):
+        temp_string = self.marker_entry.get()
+        self.marker_list[f'marker_{temp_string}'].delete()
