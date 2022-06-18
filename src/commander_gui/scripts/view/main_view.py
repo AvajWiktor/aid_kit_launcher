@@ -30,9 +30,11 @@ class MainWindowView:
         self.screen_height = self.root.winfo_screenheight()
         self.root.minsize(width=1920, height=1080)
         self.model = MainModel()
+        self.event_list = ["Human Detected", "Waypoint Achieved", "Aidkit deployed"]
         self.controller = MainController(self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
+        self.curr_action_var = tk.StringVar()
         self.action_list = []
         self.marker_list = {}
         """
@@ -167,10 +169,17 @@ class MainWindowView:
                                                 padding=50)
         self.main_status_frame.pack(fill='both', expand=True)
 
+    def save_action(self):
+        
+
     def create_mission_components(self):
         current_action_frame = ttk.LabelFrame(self.top_left_frame, text='Current Action', padding=20)
         current_action_frame.pack(anchor='n', fill='both', expand=True)
-        ttk.Button(current_action_frame, text='xd').pack()
+        combo = ttk.Combobox(current_action_frame,state='readonly',values=self.event_list ,textvariable=self.curr_action_var)
+        combo.set(self.event_list[0])
+        combo.pack()
+        #ttk.Entry(current_action_frame, textvariable=self.curr_action_var, width=10).pack()
+        ttk.Button(current_action_frame, text='Save Action', command=self.save_action).pack(fill='x', expand=True)
 
         self.action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
         self.action_list_frame.pack(anchor='n', fill='both', expand=True)
