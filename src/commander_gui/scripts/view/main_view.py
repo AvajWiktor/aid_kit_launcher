@@ -4,9 +4,15 @@ import tkinter as tk
 import types
 import serial
 
+import time
+import string
+import rospy
+
+
 import ttkbootstrap.constants
 
 import ttkbootstrap as ttk
+from model.kml_model import KMLTourGenerator
 from ttkbootstrap.constants import *
 from threading import Thread
 from PIL import ImageTk, Image
@@ -17,15 +23,14 @@ from husky_msgs.msg import HuskyStatus
 from aid_kit_launcher.srv import Launcher
 from geometry_msgs.msg import Pose, Point, Quaternion
 from tkinter import filedialog as fd
-import rospy
 from tkintermapview import TkinterMapView
-import time
 import json
 
 
 class MainWindowView:
     def __init__(self):
         self.root = ttk.Window(themename='cyborg', title='Commander GUI')
+        self.kml_generator = KMLTourGenerator("waypoints")
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
         self.root.minsize(width=1920, height=1080)
@@ -34,6 +39,7 @@ class MainWindowView:
         self.controller = MainController(self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
+        self.waypoint_name_var = tk.StringVar()
         self.curr_action_var = tk.StringVar()
         self.action_list = []
         self.marker_list = {}
@@ -44,7 +50,7 @@ class MainWindowView:
         self.create_layout()
         self.create_menu_components()
         self.create_status_components()
-        self.create_map_components()
+        # self.create_map_components()
         self.create_mission_components()
         self.create_serial()
         """
@@ -170,35 +176,50 @@ class MainWindowView:
         self.main_status_frame.pack(fill='both', expand=True)
 
     def save_action(self):
-        
+        pass
+
+    def save_waypoint(self):
+        self.kml_generator.finish("test")
 
     def create_mission_components(self):
         current_action_frame = ttk.LabelFrame(self.top_left_frame, text='Current Action', padding=20)
         current_action_frame.pack(anchor='n', fill='both', expand=True)
-        combo = ttk.Combobox(current_action_frame,state='readonly',values=self.event_list ,textvariable=self.curr_action_var)
+        combo = ttk.Combobox(current_action_frame, state='readonly', values=self.event_list,
+                             textvariable=self.curr_action_var)
         combo.set(self.event_list[0])
         combo.pack()
-        #ttk.Entry(current_action_frame, textvariable=self.curr_action_var, width=10).pack()
+        # ttk.Entry(current_action_frame, textvariable=self.curr_action_var, width=10).pack()
         ttk.Button(current_action_frame, text='Save Action', command=self.save_action).pack(fill='x', expand=True)
+        ttk.Label(current_action_frame, text="Waypoint name").pack()
+        ttk.Entry(current_action_frame, textvariable=self.waypoint_name_var).pack()
+
+        self.waypoint_long = tk.StringVar()
+        self.waypoint_lat = tk.StringVar()
+        ttk.Label(current_action_frame, text="Latitude").pack()
+        ttk.Entry(current_action_frame, textvariable= self.waypoint_lat).pack()
+        ttk.Label(current_action_frame, text="Longitude").pack()
+        ttk.Entry(current_action_frame, textvariable=self.waypoint_long).pack()
+        ttk.Button(current_action_frame, text='Add waypoint', command=self.add_waypoint).pack(fill='x', expand=True)
+        ttk.Button(current_action_frame, text='Save KML', command=self.save_waypoint).pack(fill='x', expand=True)
 
         self.action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
         self.action_list_frame.pack(anchor='n', fill='both', expand=True)
 
-    def create_map_components(self):
-        map_frame = ttk.LabelFrame(self.top_right_frame, text='Map', padding=20)
-        map_frame.pack(anchor="nw", fill="x")
-        self.map_widget = TkinterMapView(map_frame, width=1200, height=1000, corner_radius=0)
-        self.map_widget.pack(fill="both", expand=True)
-        self.map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
-        self.map_widget.set_address("Kąkolewo, Poland", marker=False)
-        self.map_widget.set_position(52.2366, 16.2446)
-        robot_image = tk.PhotoImage(file='utilities/robot_img1.png')
-        self.robot_marker = self.map_widget.set_marker(52.2366, 16.2446, text="Husky", image=robot_image)
-
-        self.robot_marker.image_zoom_visibility = (0, float('inf'))
-        self.robot_path = self.map_widget.set_path(
-            [self.robot_marker.position, self.robot_marker.position, self.robot_marker.position,
-             self.robot_marker.position])
+    # def create_map_components(self):
+    #     map_frame = ttk.LabelFrame(self.top_right_frame, text='Map', padding=20)
+    #     map_frame.pack(anchor="nw", fill="x")
+    #     self.map_widget = TkinterMapView(map_frame, width=1200, height=1000, corner_radius=0)
+    #     self.map_widget.pack(fill="both", expand=True)
+    #     self.map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
+    #     self.map_widget.set_address("Kąkolewo, Poland", marker=False)
+    #     self.map_widget.set_position(52.2366, 16.2446)
+    #     robot_image = tk.PhotoImage(file='utilities/robot_img1.png')
+    #     self.robot_marker = self.map_widget.set_marker(52.2366, 16.2446, text="Husky", image=robot_image)
+    #
+    #     self.robot_marker.image_zoom_visibility = (0, float('inf'))
+    #     self.robot_path = self.map_widget.set_path(
+    #         [self.robot_marker.position, self.robot_marker.position, self.robot_marker.position,
+    #          self.robot_marker.position])
 
     def create_data_variables(self):
         self.gps_data = {"Lat": ttk.StringVar(value='0.0'),
@@ -267,8 +288,8 @@ class MainWindowView:
         self.marker_entry = ttk.Entry(self.menu_label_frame, width=10)
         self.marker_entry.pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Deploy Aidkit', width=10, command=self.deployer).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Load markers', width=10, command=self.load_waypoints).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Remove markers', width=10, command=self.remove_waypoint).pack(pady=5)
+        # ttk.Button(self.menu_label_frame, text='Load markers', width=10, command=self.load_waypoints).pack(pady=5)
+        # ttk.Button(self.menu_label_frame, text='Remove markers', width=10, command=self.remove_waypoint).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.executor).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
         self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,
@@ -284,13 +305,13 @@ class MainWindowView:
         self.mission_progress_viz.pack()
 
     def deploy_aidkit(self):
-        #rospy.wait_for_service('send_command')
+        # rospy.wait_for_service('send_command')
         try:
             send_command = rospy.ServiceProxy('send_command', Launcher)
             command_response = send_command(1)
             return command_response.response
         except rospy.ServiceException as e:
-            print("Service call failed: %s"%e)
+            print("Service call failed: %s" % e)
 
     def create_status_components(self):
         ### GPS status components ###
@@ -429,13 +450,16 @@ class MainWindowView:
                                       bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
                                       darkcolor=BAR_COLOR)
 
-    def load_waypoints(self):
-        f = open(f"utilities/marker_coords.json")
-        data = json.load(f)
-
-        for i, marker in enumerate(data):
-            self.marker_list[f'marker_{i}'] = self.map_widget.set_marker(marker[0], marker[1], text=f'Marker_{i}')
-
-    def remove_waypoint(self):
-        temp_string = self.marker_entry.get()
-        self.marker_list[f'marker_{temp_string}'].delete()
+    # def load_waypoints(self):
+    #     f = open(f"utilities/marker_coords.json")
+    #     data = json.load(f)
+    #
+    #     for i, marker in enumerate(data):
+    #         self.marker_list[f'marker_{i}'] = self.map_widget.set_marker(marker[0], marker[1], text=f'Marker_{i}')
+    #
+    # def remove_waypoint(self):
+    #     temp_string = self.marker_entry.get()
+    #     self.marker_list[f'marker_{temp_string}'].delete()
+    def add_waypoint(self):
+        # self.kml_generator.add_waypoint(self.gps_data['Lat'], self.gps_data['Long'],self.waypoint_name_var.get())
+        self.kml_generator.add_waypoint(self.waypoint_lat.get(), self.waypoint_long.get(), self.waypoint_name_var.get())
