@@ -8,9 +8,9 @@ import time
 import string
 import rospy
 
-
+from cv_bridge import CvBridge
 import ttkbootstrap.constants
-
+import numpy as np
 import ttkbootstrap as ttk
 from model.kml_model import KMLTourGenerator
 from ttkbootstrap.constants import *
@@ -24,6 +24,7 @@ from aid_kit_launcher.srv import Launcher
 from geometry_msgs.msg import Pose, Point, Quaternion
 from tkinter import filedialog as fd
 from tkintermapview import TkinterMapView
+import sensor_msgs.msg as sensors
 import json
 
 
@@ -36,11 +37,12 @@ class MainWindowView:
         self.root.minsize(width=1920, height=1080)
         self.model = MainModel()
         self.event_list = ["Human Detected", "Waypoint Achieved", "Aidkit deployed"]
+        self.camera_list = ["1","2","3","4"]
         self.controller = MainController(self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
         self.waypoint_name_var = tk.StringVar()
-        self.curr_action_var = tk.StringVar()
+
         self.action_list = []
         self.marker_list = {}
         """
@@ -182,6 +184,7 @@ class MainWindowView:
         self.kml_generator.finish("test")
 
     def create_mission_components(self):
+        self.curr_action_var = tk.StringVar()
         current_action_frame = ttk.LabelFrame(self.top_left_frame, text='Current Action', padding=20)
         current_action_frame.pack(anchor='n', fill='both', expand=True)
         combo = ttk.Combobox(current_action_frame, state='readonly', values=self.event_list,
@@ -199,8 +202,18 @@ class MainWindowView:
         ttk.Entry(current_action_frame, textvariable= self.waypoint_lat).pack()
         ttk.Label(current_action_frame, text="Longitude").pack()
         ttk.Entry(current_action_frame, textvariable=self.waypoint_long).pack()
-        ttk.Button(current_action_frame, text='Add waypoint', command=self.add_waypoint).pack(fill='x', expand=True)
-        ttk.Button(current_action_frame, text='Save KML', command=self.save_waypoint).pack(fill='x', expand=True)
+        ttk.Button(current_action_frame, text='Add waypoint', command=self.add_waypoint).pack(fill='x', expand=True, pady=5)
+        ttk.Button(current_action_frame, text='Save KML', command=self.save_waypoint).pack(fill='x', expand=True, pady=5)
+
+        self.curr_camera_var = tk.StringVar()
+        ttk.Label(current_action_frame, text="Chose camera").pack()
+
+        combo = ttk.Combobox(current_action_frame, state='readonly', values=self.camera_list,
+                             textvariable=self.curr_camera_var)
+        combo.set(self.camera_list[0])
+        combo.pack(pady=10)
+        ttk.Button(current_action_frame, text='Capture image', command=self.save_image).pack(fill='x', expand=True, pady=5)
+
 
         self.action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
         self.action_list_frame.pack(anchor='n', fill='both', expand=True)
@@ -463,3 +476,11 @@ class MainWindowView:
     def add_waypoint(self):
         # self.kml_generator.add_waypoint(self.gps_data['Lat'], self.gps_data['Long'],self.waypoint_name_var.get())
         self.kml_generator.add_waypoint(self.waypoint_lat.get(), self.waypoint_long.get(), self.waypoint_name_var.get())
+
+    def save_image(self):
+        bridge = CvBridge()
+        image_message = rospy.wait_for_message(f"/usb_cam_{self.curr_camera_var.get()}/image_raw", sensors.Image)
+        cv_image = bridge.imgmsg_to_cv2(image_message, desired_encoding='passthrough')
+        pixels = np.array(cv_image)
+        image = Image.fromarray(pixels.astype('uint8'), 'RGB')
+        image.save('out.jpg')
