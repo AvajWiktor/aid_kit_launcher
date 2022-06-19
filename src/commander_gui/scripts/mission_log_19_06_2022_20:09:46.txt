@@ -1,0 +1,4 @@
+Start Human Detection - 2022-06-19 20:09:23.205992+02:00
+Finish going to waypoint - 2022-06-19 20:09:24.310881+02:00
+Finish Human Detection - 2022-06-19 20:09:25.405968+02:00
+Finis deploying aidkit - 2022-06-19 20:09:26.830994+02:00

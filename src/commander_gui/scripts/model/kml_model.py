@@ -36,6 +36,7 @@ class KMLTourGenerator(object):
         self.zOffset = 2.0
 
         self.coord_list = []
+        self.images_list = []
 
         self.planCoordListStr = ''
         self.execCoordListStr = ''
@@ -54,9 +55,35 @@ class KMLTourGenerator(object):
         # self.hasFinished = True
         with ZipFile(f'{kmlFilename}.kmz', 'w') as zipObj:
             zipObj.writestr(f'{kmlFilename}.kml', etree.tostring(self.path_fld, pretty_print=True, xml_declaration=True, encoding='UTF-8'))  # Add doc.kml entry
-            zipObj.write('utilities/0.png')  # Add icon to the zip
+            for image in self.images_list:
+                zipObj.write(image)  # Add icon to the zip
 
     # ---------------------------------------------------------------------------
+    def add_waypoint_wth_image(self, lat, long, name, img_full_path):
+        # pos[0] : latitude
+        # pos[1] : longitude
+        # pos[2] : altitude
+        # pos[3] : roll
+        # pos[4] : pitch
+        # pos[5] : yaw
+        self.images_list.append(img_full_path)
+        self.path_fld.append(KML.Placemark(
+            KML.name(name),
+            KML.Style(
+                KML.IconStyle(
+                    KML.scale(1.0),
+                    KML.Icon(
+                        KML.href(img_full_path)
+                    )
+                )
+            ),
+            KML.Point(
+                KML.tessellate("1"),
+                KML.altitudeMode("Clamped to Ground"),
+                KML.coordinates(f"{long}, {lat}")
+            )
+        ))
+
     def add_waypoint(self, lat, long, name):
         # pos[0] : latitude
         # pos[1] : longitude
@@ -66,19 +93,20 @@ class KMLTourGenerator(object):
         # pos[5] : yaw
         self.path_fld.append(KML.Placemark(
             KML.name(name),
-            KML.Style(
-                KML.IconStyle(
-                    KML.scale(1.0),
-                    KML.Icon(
-                        KML.href("utilities/0.png")
-                    )
-                )
-            ),
             KML.Point(
                 KML.tessellate("1"),
-                KML.altitudeMode("absolute"),
+                KML.altitudeMode("Clamped to Ground"),
                 KML.coordinates(f"{long}, {lat}")
             )
         ))
-        # auxStr = ' {lon},{lat},{alt}\n'.format(lat=lat, lon=long, alt=0.0)
-        # self.execCoordListStr = self.execCoordListStr + auxStr
+
+    def add_waypoint_event(self,lat, long, event_name, event_occurs_time):
+        self.path_fld.append(KML.Placemark(
+            KML.name(event_name),
+            KML.Point(
+                KML.tessellate("1"),
+                KML.altitudeMode("Clamped to Ground"),
+                KML.coordinates(f"{long}, {lat}")
+            ),
+            KML.ExtendedData(KML.Data(KML.value(event_occurs_time), name="Event time")),
+        ))

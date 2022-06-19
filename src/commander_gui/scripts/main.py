@@ -8,4 +8,6 @@ if __name__ == '__main__':
 
     rospy.init_node('Lolek')
     App = main_view.MainWindowView()
+    del App
+    rospy.signal_shutdown("Closing app")
     print("Closed")
