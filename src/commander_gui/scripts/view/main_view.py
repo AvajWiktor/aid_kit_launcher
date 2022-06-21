@@ -14,7 +14,7 @@ from cv_bridge import CvBridge
 import ttkbootstrap.constants
 import numpy as np
 import ttkbootstrap as ttk
-from model.kml_model import KMLTourGenerator
+from model.kml_model import KMLTourGenerator, KmlModel
 from ttkbootstrap.constants import *
 from threading import Thread
 from PIL import ImageTk, Image
@@ -34,9 +34,9 @@ class MainWindowView:
     def __init__(self):
         self.root = ttk.Window(themename='cyborg', title='Commander GUI')
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.kml_detection_logger = KMLTourGenerator("detection_log")
-        self.kml_mission_logger = KMLTourGenerator("mission_log")
-        self.kml_waypoint_logger = KMLTourGenerator("waypoint_log")
+        self.kml_detection_logger = KmlModel("detection_log")  # KMLTourGenerator("detection_log")
+        self.kml_mission_logger = KmlModel("mission_log")  # KMLTourGenerator("mission_log")
+        self.kml_waypoint_logger = KmlModel("waypoint_log")  # KMLTourGenerator("waypoint_log")
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
         self.root.minsize(width=1920, height=1080)
@@ -49,7 +49,7 @@ class MainWindowView:
                            "Finis deploying aidkit"
                            ]
         self.mission_log_data = ""
-        self.camera_list = ["1","2"]
+        self.camera_list = ["1", "2"]
         self.controller = MainController(self.model)
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
@@ -66,20 +66,17 @@ class MainWindowView:
         self.create_status_components()
         # self.create_map_components()
         self.create_mission_components()
-        self.create_serial()
         """
         *Code End*
         """
         self.updater.start()
         self.root.mainloop()
 
-    def create_serial(self):
-        self.ser = serial.Serial(
-            port='/tmp/printer',
-            baudrate=256000)
-
     def save_target(self):
-        self.kml_detection_logger.add_waypoint_wth_image(self.gps_data['Lat'].get(), self.gps_data['Long'].get(), self.target_id.get(), f"captured_images/{self.image_name.get()}.jpg")
+        # self.kml_detection_logger.add_waypoint_wth_image(self.gps_data['Lat'].get(), self.gps_data['Long'].get(), self.target_id.get(), f"captured_images/{self.image_name.get()}.jpg")
+        self.kml_detection_logger.add_ori(self.target_id.get(), "blablabla", self.gps_data['Lat'].get(),
+                                          self.gps_data['Long'].get(), image_name=f"{self.image_name.get()}.jpg",
+                                          image_full_path=f"captured_images/{self.image_name.get()}.jpg")
 
     def save_mission_log(self):
         ct = datetime.datetime.now()
@@ -100,7 +97,7 @@ class MainWindowView:
         temp = 0
         incr = 1
         while threading.main_thread().is_alive():
-
+            # print("updating\n")
             data = self.model.get_data()
             lat = data['GPS'].latitude
             long = data['GPS'].longitude
@@ -111,9 +108,9 @@ class MainWindowView:
             if type(lat) is float and type(long) is float:
                 self.gps_data['Lat'].set(round(lat, 10))
                 self.gps_data['Long'].set(round(long, 10))
-                #self.robot_marker.set_position(lat, long)
-                #self.robot_path.add_position(self.robot_marker.position[0], self.robot_marker.position[1])
-                #self.robot_path.draw()
+                # self.robot_marker.set_position(lat, long)
+                # self.robot_path.add_position(self.robot_marker.position[0], self.robot_marker.position[1])
+                # self.robot_path.draw()
             if not isinstance(pose, types.MemberDescriptorType):
                 position = pose.pose.position
                 orientation = pose.pose.orientation
@@ -209,9 +206,11 @@ class MainWindowView:
     def save_action(self):
         tz = pytz.timezone("Europe/Warsaw")
         ct = datetime.datetime.now(tz)
-        #ct = datetime.datetime.now(datetime.timezone.utc)
+        # ct = datetime.datetime.now(datetime.timezone.utc)
         self.mission_log_data += f"{self.curr_action_var.get()} - {ct}\n"
-        self.kml_mission_logger.add_waypoint_event(self.gps_data['Lat'].get(), self.gps_data['Long'].get(), self.curr_action_var.get(), ct)
+        # self.kml_mission_logger.add_waypoint_event(self.gps_data['Lat'].get(), self.gps_data['Long'].get(), self.curr_action_var.get(), ct)
+        self.kml_mission_logger.add_event(self.curr_action_var.get(), "blabla", self.gps_data['Lat'].get(),
+                                          self.gps_data['Long'].get(), ct)
 
     def create_mission_components(self):
         self.curr_action_var = tk.StringVar()
@@ -227,7 +226,6 @@ class MainWindowView:
         WAYPOINT_frame = ttk.LabelFrame(current_action_frame, text='WAYPOINT action features', padding=50)
         WAYPOINT_frame.pack(anchor='n', fill='both', expand=True)
 
-
         # MSD SECTION #
         combo = ttk.Combobox(MSD_frame, state='readonly', values=self.event_list,
                              textvariable=self.curr_action_var)
@@ -236,8 +234,7 @@ class MainWindowView:
         # ttk.Entry(current_action_frame, textvariable=self.curr_action_var, width=10).pack()
         ttk.Button(MSD_frame, text='Save Action', command=self.save_action).pack(fill='x', expand=True)
 
-        #MSD SECTION #
-
+        # MSD SECTION #
 
         # ORI SECTION #
         self.curr_camera_var = tk.StringVar()
@@ -251,9 +248,9 @@ class MainWindowView:
         combo.pack(pady=10)
         ttk.Label(ORI_frame, text="Enter image name").pack()
 
-        ttk.Entry(ORI_frame, textvariable= self.image_name).pack()
+        ttk.Entry(ORI_frame, textvariable=self.image_name).pack()
         ttk.Label(ORI_frame, text="Enter target id").pack()
-        ttk.Entry(ORI_frame, textvariable= self.target_id).pack()
+        ttk.Entry(ORI_frame, textvariable=self.target_id).pack()
         ttk.Button(ORI_frame, text='Capture image', command=self.save_image).pack(fill='x', expand=True, pady=5)
         ttk.Button(ORI_frame, text='Save target', command=self.save_target).pack(fill='x', expand=True, pady=5)
 
@@ -269,7 +266,7 @@ class MainWindowView:
         ttk.Label(WAYPOINT_frame, text="Longitude").pack()
         ttk.Entry(WAYPOINT_frame, textvariable=self.waypoint_long).pack()
         ttk.Button(WAYPOINT_frame, text='Add waypoint', command=self.add_waypoint).pack(fill='x', expand=True, pady=5)
-        #WAYPOINT SECTION
+        # WAYPOINT SECTION
 
         self.action_list_frame = ttk.LabelFrame(self.bottom_frame, text='Action list', labelanchor="n", padding=20)
         self.action_list_frame.pack(anchor='n', fill='both', expand=True)
@@ -531,14 +528,9 @@ class MainWindowView:
     #     self.marker_list[f'marker_{temp_string}'].delete()
     def add_waypoint(self):
         # self.kml_generator.add_waypoint(self.gps_data['Lat'], self.gps_data['Long'],self.waypoint_name_var.get())
-        self.kml_waypoint_logger.add_waypoint(self.waypoint_lat.get(), self.waypoint_long.get(), self.waypoint_name_var.get())
+        # self.kml_waypoint_logger.add_waypoint(self.waypoint_lat.get(), self.waypoint_long.get(), self.waypoint_name_var.get())
+        self.kml_waypoint_logger.add_waypoint(self.waypoint_name_var.get(), self.waypoint_lat.get(),
+                                              self.waypoint_long.get())
 
     def save_image(self):
-        #ct = datetime.datetime.now()
-        #ct = ct.strftime("%d_%m_%Y_%H:%M:%S")
-        bridge = CvBridge()
-        image_message = rospy.wait_for_message(f"/usb_cam_{self.curr_camera_var.get()}/image_raw", sensors.Image)
-        cv_image = bridge.imgmsg_to_cv2(image_message, desired_encoding='passthrough')
-        pixels = np.array(cv_image)
-        image = Image.fromarray(pixels.astype('uint8'), 'RGB')
-        image.save(f'captured_images/{self.image_name.get()}.jpg')
+        self.controller.capture_image(self.curr_camera_var.get(), self.image_name.get())

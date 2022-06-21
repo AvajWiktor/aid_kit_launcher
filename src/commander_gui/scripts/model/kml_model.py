@@ -19,9 +19,34 @@ from pykml.factory import KML_ElementMaker as KML
 from pykml.factory import GX_ElementMaker as GX
 from pykml.parser import Schema
 from lxml import etree
-
+import simplekml
 import utm
 
+
+class KmlModel(simplekml.Kml):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+        self.images_list = []
+        self.points_folder = self.newfolder(name=self.name)
+
+    def add_waypoint(self, name, lat, long):
+        waypoint = self.points_folder.newpoint(name=name, coords=[(long,lat)])
+
+    def add_ori(self, name, desc, lat, long,image_name=None, image_full_path=None):
+        ori = self.points_folder.newpoint(name=name, coords=[(long,lat)])
+        ori.description = desc
+        if image_full_path is not None:
+            self.images_list.append(image_full_path)
+            ori.description += '<img src=\"files/' + image_name +'\" alt=\"picture\" width=\"300\" height=\"250\" align=\"left\" />'
+            ori.style.iconstyle.icon.href = image_full_path
+
+    def add_event(self, name, desc, lat, long, utc_time):
+        event = self.points_folder.newpoint(name=name, coords=[(long,lat)])
+        event.description = f"Event time: {utc_time}"
+
+    def finish(self, path):
+        self.savekmz(path)
 
 class KMLTourGenerator(object):
 
@@ -41,7 +66,6 @@ class KMLTourGenerator(object):
         self.planCoordListStr = ''
         self.execCoordListStr = ''
 
-
         self.path_fld = KML.Folder(
             KML.name(f'{name}'),
             id='waypoints',
@@ -54,7 +78,8 @@ class KMLTourGenerator(object):
         # outfile.close()
         # self.hasFinished = True
         with ZipFile(f'{kmlFilename}.kmz', 'w') as zipObj:
-            zipObj.writestr(f'{kmlFilename}.kml', etree.tostring(self.path_fld, pretty_print=True, xml_declaration=True, encoding='UTF-8'))  # Add doc.kml entry
+            zipObj.writestr(f'{kmlFilename}.kml', etree.tostring(self.path_fld, pretty_print=True, xml_declaration=True,
+                                                                 encoding='UTF-8'))  # Add doc.kml entry
             for image in self.images_list:
                 zipObj.write(image)  # Add icon to the zip
 
@@ -100,7 +125,7 @@ class KMLTourGenerator(object):
             )
         ))
 
-    def add_waypoint_event(self,lat, long, event_name, event_occurs_time):
+    def add_waypoint_event(self, lat, long, event_name, event_occurs_time):
         self.path_fld.append(KML.Placemark(
             KML.name(event_name),
             KML.Point(

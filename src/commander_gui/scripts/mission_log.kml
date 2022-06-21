@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+    <Document id="4">
+        <Folder id="5">
+            <name>mission_log</name>
+            <Placemark id="10">
+                <name>Start Human Detection</name>
+                <description>Event time: 2022-06-20 16:35:46.447132+02:00</description>
+                <Point id="9">
+                    <coordinates>0.0,0.0,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="12">
+                <name>Finish going to waypoint</name>
+                <description>Event time: 2022-06-20 16:35:47.757556+02:00</description>
+                <Point id="11">
+                    <coordinates>0.0,0.0,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="14">
+                <name>Start going to waypoint</name>
+                <description>Event time: 2022-06-20 16:35:49.182570+02:00</description>
+                <Point id="13">
+                    <coordinates>0.0,0.0,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="16">
+                <name>Finis deploying aidkit</name>
+                <description>Event time: 2022-06-20 16:35:50.517667+02:00</description>
+                <Point id="15">
+                    <coordinates>0.0,0.0,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="18">
+                <name>Start deploying aidkit</name>
+                <description>Event time: 2022-06-20 16:35:54.185448+02:00</description>
+                <Point id="17">
+                    <coordinates>0.0,0.0,0.0</coordinates>
+                </Point>
+            </Placemark>
+        </Folder>
+    </Document>
+</kml>

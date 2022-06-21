@@ -1,4 +1,0 @@
-Start Human Detection - 2022-06-19 20:02:26.526699+02:00
-Start going to waypoint - 2022-06-19 20:02:27.643350+02:00
-Start Human Detection - 2022-06-19 20:02:28.790950+02:00
-Finish Human Detection - 2022-06-19 20:02:30.073262+02:00
