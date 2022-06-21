@@ -44,8 +44,6 @@ def detect_red(iemgie):
     img_res = cv2.bitwise_and(img, img, mask=red_mask)
 
     contours, hierarchy = cv2.findContours(red_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    cv2.imshow('mask red', red_mask)
     cont_list = list()
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
@@ -105,16 +103,30 @@ class MainModel:
     def odom_callback(self, data):
         self.model_data['Odom'] = data
         #rospy.sleep(0.1)
-
-    def capture_image(self, camera_id, image_name):
+    
+    def get_image(self, camera_id):
         bridge = CvBridge()
         image_message = rospy.wait_for_message(f"/usb_cam_{camera_id}/image_raw", sensors.Image)
         cv_image = bridge.imgmsg_to_cv2(image_message, desired_encoding='passthrough')
-        img, result = detect_red(cv_image)
+        changed_img = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+        return changed_img
+    
+    def capture_image(self, camera_id, image_name, type):
+        bridge = CvBridge()
+        image_message = rospy.wait_for_message(f"/usb_cam_{camera_id}/image_raw", sensors.Image)
+        cv_image = bridge.imgmsg_to_cv2(image_message, desired_encoding='passthrough')
+        img = None
+        result = False
+        if type == "damage":
+            img, result = detect_red(cv_image)
+        if type == "entrance":
+            #img, result = detect_green(cv_image)
+            pass
         pixels = np.array(img)
         image = Image.fromarray(pixels.astype('uint8'), 'RGB')
-        image.save(f'captured_images/{image_name}_{camera_id}_{result}.jpg')
-
+        image.save(f'captured_images/{image_name}.jpg')
+        return result
+        
     def diagnostic_callback(self, data):
         """Jedno wielkie xD
         data.status[0].values[7] - > Left Motor Driver Temp

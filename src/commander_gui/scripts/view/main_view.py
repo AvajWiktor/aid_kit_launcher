@@ -3,6 +3,8 @@ import os
 import threading
 import tkinter as tk
 import types
+from math import cos
+import cv2
 import serial
 import pytz
 from datetime import date
@@ -13,8 +15,10 @@ import rospy
 from cv_bridge import CvBridge
 import ttkbootstrap.constants
 import numpy as np
+from tf.transformations import euler_from_quaternion
 import ttkbootstrap as ttk
 from model.kml_model import KMLTourGenerator, KmlModel
+from model.yolo_model import YoloModel
 from ttkbootstrap.constants import *
 from threading import Thread
 from PIL import ImageTk, Image
@@ -34,13 +38,15 @@ class MainWindowView:
     def __init__(self):
         self.root = ttk.Window(themename='cyborg', title='Commander GUI')
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.kml_detection_logger = KmlModel("detection_log")  # KMLTourGenerator("detection_log")
-        self.kml_mission_logger = KmlModel("mission_log")  # KMLTourGenerator("mission_log")
-        self.kml_waypoint_logger = KmlModel("waypoint_log")  # KMLTourGenerator("waypoint_log")
+        self.indoor_flag = tk.BooleanVar(value=False)
+        # self.kml_detection_logger = KmlModel("detection_log")  # KMLTourGenerator("detection_log")
+        self.kml_mission_logger = KmlModel("mission_log", self.indoor_flag)  # KMLTourGenerator("mission_log")
+        # self.kml_waypoint_logger = KmlModel("waypoint_log")  # KMLTourGenerator("waypoint_log")
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
         self.root.minsize(width=1920, height=1080)
         self.model = MainModel()
+        self.yolo = YoloModel()
         self.event_list = ["Start Human Detection",
                            "Finish Human Detection",
                            "Start going to waypoint",
@@ -54,7 +60,8 @@ class MainWindowView:
         self.updater = Thread(name='refresher', target=self.update_data)
         self.test_var = tk.IntVar(value=10)
         self.waypoint_name_var = tk.StringVar()
-
+        self.update_flag = tk.BooleanVar(value=False)
+        self.internal_clock = rospy.get_rostime().nsecs
         self.action_list = []
         self.marker_list = {}
         """
@@ -72,11 +79,38 @@ class MainWindowView:
         self.updater.start()
         self.root.mainloop()
 
-    def save_target(self):
+    def detect_human(self):
+        # im = cv2.imread("captured_images/blazej.jpg")
+        # changed_img = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+        self.yolo.detect_human(self.controller.get_image(self.curr_camera_var.get()))
+
+    def detect_damage(self):
         # self.kml_detection_logger.add_waypoint_wth_image(self.gps_data['Lat'].get(), self.gps_data['Long'].get(), self.target_id.get(), f"captured_images/{self.image_name.get()}.jpg")
-        self.kml_detection_logger.add_ori(self.target_id.get(), "blablabla", self.gps_data['Lat'].get(),
-                                          self.gps_data['Long'].get(), image_name=f"{self.image_name.get()}.jpg",
-                                          image_full_path=f"captured_images/{self.image_name.get()}.jpg")
+        self.controller.capture_image(self.curr_camera_var.get(), self.image_name.get(), "damage")
+        if self.indoor_flag:
+            self.kml_mission_logger.add_ori(self.target_id.get(),
+                                            52.2387931 + (float(self.odom_data['Position'][0].get()) * cos(
+                                                16.2309918 * 3.14 / 180.0))/1000.0,
+                                            16.2309918+ (float(self.odom_data['Position'][1].get()) / 111320.0),
+                                            image_name=f"{self.image_name.get()}.jpg",
+                                            image_full_path=f"captured_images/{self.image_name.get()}.jpg")
+        else:
+            self.kml_mission_logger.add_ori(self.target_id.get(), self.gps_data['Lat'].get(),
+                                            self.gps_data['Long'].get(), image_name=f"{self.image_name.get()}.jpg",
+                                            image_full_path=f"captured_images/{self.image_name.get()}.jpg")
+
+    def detect_entrance(self):
+        self.controller.capture_image(self.curr_camera_var.get(), self.image_name.get(), "entrance")
+        if self.indoor_flag:
+            self.kml_mission_logger.add_ori(self.target_id.get(), 52.2387931 + (
+                        float(self.odom_data['Position'][0].get()) * cos(16.2309918 * 3.14 / 180.0))/1000.0,
+                                            16.2309918 + (float(self.odom_data['Position'][1].get()) / 111320.0),
+                                            image_name=f"{self.image_name.get()}.jpg",
+                                            image_full_path=f"captured_images/{self.image_name.get()}.jpg")
+        else:
+            self.kml_mission_logger.add_ori(self.target_id.get(), self.gps_data['Lat'].get(),
+                                            self.gps_data['Long'].get(), image_name=f"{self.image_name.get()}.jpg",
+                                            image_full_path=f"captured_images/{self.image_name.get()}.jpg")
 
     def save_mission_log(self):
         ct = datetime.datetime.now()
@@ -88,8 +122,8 @@ class MainWindowView:
     def on_closing(self):
         self.save_mission_log()
         self.kml_mission_logger.finish("mission_log")
-        self.kml_detection_logger.finish("detection_log")
-        self.kml_waypoint_logger.finish("waypoint_log")
+        # self.kml_detection_logger.finish("detection_log")
+        # self.kml_waypoint_logger.finish("waypoint_log")
         self.root.destroy()
 
     def update_data(self):
@@ -97,61 +131,82 @@ class MainWindowView:
         temp = 0
         incr = 1
         while threading.main_thread().is_alive():
-            # print("updating\n")
-            data = self.model.get_data()
-            lat = data['GPS'].latitude
-            long = data['GPS'].longitude
-            pose = data['Odom'].pose
-            velocity = data['Odom'].twist
-            diagnostic = data['Diagnostic']
-            # orientation = data['Odom'].pose.orientation
-            if type(lat) is float and type(long) is float:
-                self.gps_data['Lat'].set(round(lat, 10))
-                self.gps_data['Long'].set(round(long, 10))
-                # self.robot_marker.set_position(lat, long)
-                # self.robot_path.add_position(self.robot_marker.position[0], self.robot_marker.position[1])
-                # self.robot_path.draw()
-            if not isinstance(pose, types.MemberDescriptorType):
-                position = pose.pose.position
-                orientation = pose.pose.orientation
-                self.odom_data['Position'][0].set(round(position.x, 3))
-                self.odom_data['Position'][1].set(round(position.y, 3))
-                self.odom_data['Position'][2].set(round(position.z, 3))
+            if self.update_flag.get():
 
-                self.odom_data['Orientation'][0].set(round(orientation.x, 3))
-                self.odom_data['Orientation'][1].set(round(orientation.y, 3))
-                self.odom_data['Orientation'][2].set(round(orientation.z, 3))
-                self.odom_data['Orientation'][3].set(round(orientation.w, 3))
-            if not isinstance(velocity, types.MemberDescriptorType):
-                linear = velocity.twist.linear
-                angular = velocity.twist.angular
-                self.odom_data['LinearVel'][0].set(round(linear.x, 3))
-                self.odom_data['LinearVel'][1].set(round(linear.y, 3))
-                self.odom_data['LinearVel'][2].set(round(linear.z, 3))
+                # print("updating\n")
+                data = self.model.get_data()
+                lat = data['GPS'].latitude
+                long = data['GPS'].longitude
+                pose = data['Odom'].pose
+                velocity = data['Odom'].twist
+                diagnostic = data['Diagnostic']
+                # orientation = data['Odom'].pose.orientation
+                if type(lat) is float and type(long) is float:
+                    self.gps_data['Lat'].set(round(lat, 10))
+                    self.gps_data['Long'].set(round(long, 10))
+                    # self.robot_marker.set_position(lat, long)
+                    # self.robot_path.add_position(self.robot_marker.position[0], self.robot_marker.position[1])
+                    # self.robot_path.draw()
 
-                self.odom_data['AngularVel'][0].set(round(angular.x, 3))
-                self.odom_data['AngularVel'][1].set(round(angular.y, 3))
-                self.odom_data['AngularVel'][2].set(round(angular.z, 3))
-            # print(diagnostic)
-            if not isinstance(diagnostic, type(HuskyStatus)):
-                diagnostic = diagnostic.status
-                # print(round(float(diagnostic[0].values[7].value), 3))
-                self.diagnostic_data['Temperature']['LeftDriver'].set(round(float(diagnostic[0].values[7].value), 3))
-                self.diagnostic_data['Temperature']['LeftMotor'].set(round(float(diagnostic[0].values[9].value), 3))
-                self.diagnostic_data['Temperature']['RightDriver'].set(round(float(diagnostic[0].values[8].value), 3))
-                self.diagnostic_data['Temperature']['RightMotor'].set(round(float(diagnostic[0].values[10].value), 3))
-                # print(diagnostic[1].values[0])
-                self.diagnostic_data['Battery']['Capacity'].set(round(float(diagnostic[1].values[1].value), 3))
-                self.diagnostic_data['Battery']['Charge'].set(round(100 * float(diagnostic[1].values[0].value), 3))
-                self.update_battery_bar()
-                self.diagnostic_data['ErrorsStatus']['Timeout'].set(diagnostic[2].values[0].value)
-                self.diagnostic_data['ErrorsStatus']['Lockout'].set(diagnostic[2].values[1].value)
-                self.diagnostic_data['ErrorsStatus']['Estop'].set(diagnostic[2].values[2].value)
-                self.diagnostic_data['ErrorsStatus']['RosPause'].set(diagnostic[2].values[3].value)
-                self.diagnostic_data['ErrorsStatus']['NoBattery'].set(diagnostic[2].values[4].value)
-                self.diagnostic_data['ErrorsStatus']['CurrentLimit'].set(diagnostic[2].values[5].value)
-            # if len(self.action_list) > 0:
-            #    print(self.action_list[0].get_data()['RotateBy']['direction'].get())
+                if not isinstance(pose, types.MemberDescriptorType):
+                    position = pose.pose.position
+                    orientation = pose.pose.orientation
+                    self.odom_data['Position'][0].set(round(position.x, 3))
+                    self.odom_data['Position'][1].set(round(position.y, 3))
+                    self.odom_data['Position'][2].set(round(position.z, 3))
+
+                    self.odom_data['Orientation'][0].set(round(orientation.x, 3))
+                    self.odom_data['Orientation'][1].set(round(orientation.y, 3))
+                    self.odom_data['Orientation'][2].set(round(orientation.z, 3))
+                    self.odom_data['Orientation'][3].set(round(orientation.w, 3))
+                    #if ((rospy.get_rostime().nsecs - self.internal_clock) > 0) and (
+                    if (float(self.gps_data['Lat'].get()) > 1.0) or self.indoor_flag.get():
+                        #self.internal_clock = rospy.get_rostime().nsecs
+                        if self.indoor_flag.get():
+                            self.kml_mission_logger.add_path_point(52.2387931 + (
+                                        float(self.odom_data['Position'][0].get()) * cos(
+                                16.2309918 * 3.14 / 180.0)) / 100000.0, 16.2309918 + (float(
+                                self.odom_data['Position'][1].get()) / 111320.0),
+                                                                   round(self.get_euler_odom()[2] * 180.0 / 3.14, 1),
+                                                                   self.get_utc_time())
+                        else:
+                            self.kml_mission_logger.add_path_point(self.gps_data['Lat'].get(),
+                                                                   self.gps_data['Long'].get(),
+                                                                   round(self.get_euler_odom()[2] * 180.0 / 3.14, 1),
+                                                                   self.get_utc_time())
+                if not isinstance(velocity, types.MemberDescriptorType):
+                    linear = velocity.twist.linear
+                    angular = velocity.twist.angular
+                    self.odom_data['LinearVel'][0].set(round(linear.x, 3))
+                    self.odom_data['LinearVel'][1].set(round(linear.y, 3))
+                    self.odom_data['LinearVel'][2].set(round(linear.z, 3))
+
+                    self.odom_data['AngularVel'][0].set(round(angular.x, 3))
+                    self.odom_data['AngularVel'][1].set(round(angular.y, 3))
+                    self.odom_data['AngularVel'][2].set(round(angular.z, 3))
+                # print(diagnostic)
+                if not isinstance(diagnostic, type(HuskyStatus)):
+                    diagnostic = diagnostic.status
+                    # print(round(float(diagnostic[0].values[7].value), 3))
+                    self.diagnostic_data['Temperature']['LeftDriver'].set(
+                        round(float(diagnostic[0].values[7].value), 3))
+                    self.diagnostic_data['Temperature']['LeftMotor'].set(round(float(diagnostic[0].values[9].value), 3))
+                    self.diagnostic_data['Temperature']['RightDriver'].set(
+                        round(float(diagnostic[0].values[8].value), 3))
+                    self.diagnostic_data['Temperature']['RightMotor'].set(
+                        round(float(diagnostic[0].values[10].value), 3))
+                    # print(diagnostic[1].values[0])
+                    self.diagnostic_data['Battery']['Capacity'].set(round(float(diagnostic[1].values[1].value), 3))
+                    self.diagnostic_data['Battery']['Charge'].set(round(100 * float(diagnostic[1].values[0].value), 3))
+                    self.update_battery_bar()
+                    self.diagnostic_data['ErrorsStatus']['Timeout'].set(diagnostic[2].values[0].value)
+                    self.diagnostic_data['ErrorsStatus']['Lockout'].set(diagnostic[2].values[1].value)
+                    self.diagnostic_data['ErrorsStatus']['Estop'].set(diagnostic[2].values[2].value)
+                    self.diagnostic_data['ErrorsStatus']['RosPause'].set(diagnostic[2].values[3].value)
+                    self.diagnostic_data['ErrorsStatus']['NoBattery'].set(diagnostic[2].values[4].value)
+                    self.diagnostic_data['ErrorsStatus']['CurrentLimit'].set(diagnostic[2].values[5].value)
+                # if len(self.action_list) > 0:
+                #    print(self.action_list[0].get_data()['RotateBy']['direction'].get())
             rospy.sleep(1 / 60)
             # time.sleep(1 / 3)
 
@@ -209,8 +264,7 @@ class MainWindowView:
         # ct = datetime.datetime.now(datetime.timezone.utc)
         self.mission_log_data += f"{self.curr_action_var.get()} - {ct}\n"
         # self.kml_mission_logger.add_waypoint_event(self.gps_data['Lat'].get(), self.gps_data['Long'].get(), self.curr_action_var.get(), ct)
-        self.kml_mission_logger.add_event(self.curr_action_var.get(), "blabla", self.gps_data['Lat'].get(),
-                                          self.gps_data['Long'].get(), ct)
+        self.kml_mission_logger.add_mission_status_data(self.curr_action_var.get(), "costam costam", ct)
 
     def create_mission_components(self):
         self.curr_action_var = tk.StringVar()
@@ -251,8 +305,11 @@ class MainWindowView:
         ttk.Entry(ORI_frame, textvariable=self.image_name).pack()
         ttk.Label(ORI_frame, text="Enter target id").pack()
         ttk.Entry(ORI_frame, textvariable=self.target_id).pack()
-        ttk.Button(ORI_frame, text='Capture image', command=self.save_image).pack(fill='x', expand=True, pady=5)
-        ttk.Button(ORI_frame, text='Save target', command=self.save_target).pack(fill='x', expand=True, pady=5)
+
+        ttk.Button(ORI_frame, text='Detect damage', command=self.detect_damage).pack(fill='x', expand=True, pady=5)
+        ttk.Button(ORI_frame, text='Detect entrance', command=self.detect_entrance).pack(fill='x', expand=True, pady=5)
+        ttk.Button(ORI_frame, text='Detect human', command=self.detect_human).pack(fill='x', expand=True, pady=5)
+        # ttk.Button(ORI_frame, text='Save target', command=self.save_target).pack(fill='x', expand=True, pady=5)
 
         # ORI SECTION #
 
@@ -356,7 +413,12 @@ class MainWindowView:
         ttk.Button(self.menu_label_frame, text='Deploy Aidkit', width=10, command=self.deployer).pack(pady=5)
         # ttk.Button(self.menu_label_frame, text='Load markers', width=10, command=self.load_waypoints).pack(pady=5)
         # ttk.Button(self.menu_label_frame, text='Remove markers', width=10, command=self.remove_waypoint).pack(pady=5)
-        ttk.Button(self.menu_label_frame, text='Execute', width=10, command=self.executor).pack(pady=5)
+        ttk.Button(self.menu_label_frame, text='Execute', width=10, state='disabled', command=self.executor).pack(
+            pady=5)
+        ttk.Checkbutton(self.menu_label_frame, text='Mission Indoor', width=10, variable=self.indoor_flag,
+                        command=lambda: print(f"Mission indoor set to:{self.indoor_flag.get()}")).pack(pady=5)
+        ttk.Checkbutton(self.menu_label_frame, text='Start Mission', width=10, variable=self.update_flag,
+                        command=lambda: print(f"Mission started: {self.update_flag.get()}")).pack(pady=5)
         ttk.Button(self.menu_label_frame, text='Abort', width=10, command=self.target_walker).pack(pady=5)
         self.mission_progress_viz = ttk.Meter(self.menu_label_frame, metersize=180,
                                               amountused=0,
@@ -516,21 +578,21 @@ class MainWindowView:
                                       bordercolor=BAR_COLOR, background=BAR_COLOR, lightcolor=BAR_COLOR,
                                       darkcolor=BAR_COLOR)
 
-    # def load_waypoints(self):
-    #     f = open(f"utilities/marker_coords.json")
-    #     data = json.load(f)
-    #
-    #     for i, marker in enumerate(data):
-    #         self.marker_list[f'marker_{i}'] = self.map_widget.set_marker(marker[0], marker[1], text=f'Marker_{i}')
-    #
-    # def remove_waypoint(self):
-    #     temp_string = self.marker_entry.get()
-    #     self.marker_list[f'marker_{temp_string}'].delete()
     def add_waypoint(self):
-        # self.kml_generator.add_waypoint(self.gps_data['Lat'], self.gps_data['Long'],self.waypoint_name_var.get())
-        # self.kml_waypoint_logger.add_waypoint(self.waypoint_lat.get(), self.waypoint_long.get(), self.waypoint_name_var.get())
-        self.kml_waypoint_logger.add_waypoint(self.waypoint_name_var.get(), self.waypoint_lat.get(),
-                                              self.waypoint_long.get())
+        self.kml_mission_logger.add_waypoint(self.waypoint_name_var.get(), self.waypoint_lat.get(),
+                                             self.waypoint_long.get())
 
-    def save_image(self):
-        self.controller.capture_image(self.curr_camera_var.get(), self.image_name.get())
+    def get_euler_odom(self):
+        e_odom = euler_from_quaternion([self.odom_data['Orientation'][0].get(),
+                                        self.odom_data['Orientation'][1].get(),
+                                        self.odom_data['Orientation'][2].get(),
+                                        self.odom_data['Orientation'][3].get()])
+        return e_odom
+
+    @staticmethod
+    def get_utc_time():
+        tz = pytz.timezone("Europe/Warsaw")
+        ct = datetime.datetime.now(tz)
+        return ct
+    # def save_image(self):
+    #     self.controller.capture_image(self.curr_camera_var.get(), self.image_name.get())

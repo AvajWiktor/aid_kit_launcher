@@ -24,29 +24,50 @@ import utm
 
 
 class KmlModel(simplekml.Kml):
-    def __init__(self, name):
+    def __init__(self, name, indoor_status):
         super().__init__()
+        self.indoor_status = indoor_status
         self.name = name
+        self.point_coords_list = []
         self.images_list = []
-        self.points_folder = self.newfolder(name=self.name)
+        self.VND_path = self.newdocument(name="UVG path")
+        self.VND_path.style.labelstyle.scale = 0
+        #self.VND_path.style.iconstyle.scale = 0
+        self.MSD_folder = self.newdocument(name="Mission Status Data")
+        self.MI_folder = self.newdocument(name="Map information")
+        self.ORI_folder = self.newdocument(name="Object recognition information")
+        self.WPD_folder = self.newdocument(name="Waypoint Data")
+
+    def add_path_point(self, lat, long, heading, utc_time):
+        print("dodalem")
+        pnt = self.VND_path.newpoint(coords=[(long, lat)])
+        pnt.description =f"Lat: {lat}\nLong: {long}\nHeading: {heading}\nTime: {utc_time}"
+        pnt.timestamp.when = utc_time
+        pnt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle_highlight.png'
+        self.point_coords_list.append((long, lat))
 
     def add_waypoint(self, name, lat, long):
-        waypoint = self.points_folder.newpoint(name=name, coords=[(long,lat)])
+        waypoint = self.WPD_folder.newpoint(name=name, coords=[(long, lat)])
 
-    def add_ori(self, name, desc, lat, long,image_name=None, image_full_path=None):
-        ori = self.points_folder.newpoint(name=name, coords=[(long,lat)])
-        ori.description = desc
+    def add_ori(self, name, lat, long, image_name=None, image_full_path=None):
+        ori = self.ORI_folder.newpoint(name=name, coords=[(long, lat)])
         if image_full_path is not None:
             self.images_list.append(image_full_path)
-            ori.description += '<img src=\"files/' + image_name +'\" alt=\"picture\" width=\"300\" height=\"250\" align=\"left\" />'
-            ori.style.iconstyle.icon.href = image_full_path
+            ori.description = '<img src=\"files/' + image_name + '\" alt=\"picture\" width=\"300\" height=\"250\" align=\"left\" />'
+            ori.style.iconstyle.icon.href = f"captured_images/{image_name}.jpg"
 
-    def add_event(self, name, desc, lat, long, utc_time):
-        event = self.points_folder.newpoint(name=name, coords=[(long,lat)])
-        event.description = f"Event time: {utc_time}"
+    def add_mission_status_data(self, name, desc, utc_time):
+        event = self.MSD_folder.newpoint(name=name, coords=[(16.2308,52.238611)])
+        event.description = desc #+ f"Event time: {utc_time}"
+        event.timestamp.when = utc_time
+        #event.timestamp.when = utc_time
 
     def finish(self, path):
+        temp = self.newlinestring()
+        temp.coords = self.point_coords_list
+        temp.extrude = 1
         self.savekmz(path)
+
 
 class KMLTourGenerator(object):
 
